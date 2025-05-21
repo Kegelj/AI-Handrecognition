@@ -3,6 +3,9 @@ import random
 import string
 import os
 from pathlib import Path
+import mediapipe as mp
+from pynput.keyboard import Controller
+
 
 # Generating random Filename
 def rand_string(length):
@@ -63,9 +66,50 @@ def extracting_frames(video_name, save_path, skip_frames=5):
     cap.release()
     return 0
 
-def live_extracting_frames():
-    pass
-    
+def is_index_finger_up(hand_landmarks):
+    # Landmark-IDs
+    # 6 = PIP, 8 = Fingerkuppe
+    return hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y
+
+def is_fist(hand_landmarks):
+    return hand_landmarks.landmark[8].y < hand_landmarks.landmark[7].y and hand_landmarks.landmark[12].y < hand_landmarks.landmark[10].y and hand_landmarks.landmark[16].y < hand_landmarks.landmark[14].y and hand_landmarks.landmark[20].y < hand_landmarks.landmark[18].y
+
+def live_tracking():
+    mp_hands = mp.solutions.hands
+    hands = mp_hands.Hands()
+    mp_draw = mp.solutions.drawing_utils
+    keyboard = Controller()
+
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        success, image = cap.read()
+        if not success:
+            break
+
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        results = hands.process(image_rgb)
+
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                if is_index_finger_up(hand_landmarks):
+                    keyboard.press('w')
+                else:
+                    keyboard.release('w')
+                # if is_fist(hand_landmarks):
+                #     keyboard.press('space')
+                # else:
+                #     keyboard.release('space')
+                    
+
+        cv2.imshow("Handerkennung", image)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
-    extracting_frames("pointer_finger_R_max.MP4", "C:/Users/am-user453/Desktop/Hand_recognition/Projekt/project_assets/frames/pointer_finger")
+    live_tracking()
