@@ -1,0 +1,12 @@
+
+services:
+  trainer:
+    build:
+      context: .
+      dockerfile: training/Dockerfile
+    container_name: ai_handrecognition_trainer
+    volumes:
+      - ./:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["tail", "-f", "/dev/null"]
