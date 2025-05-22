@@ -1,0 +1,7 @@
+mediapipe==0.10.9
+opencv-python-headless==4.9.0.80
+pandas
+numpy
+matplotlib
+scikit-learn==1.4.2
+tensorflow==2.15.0
