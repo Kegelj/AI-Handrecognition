@@ -23,7 +23,7 @@ def length_of_video(video_name):
 def extracting_frames(video_name, save_path, skip_frames=5):
     print("*******EXTRACTING PHASE********")
     
-    # Get the Videoname without .MP4 / .MOV
+    # Get the Videoname without IVAN.MP4 / .MOV
     file_name_without_ext = os.path.splitext(video_name)[0]
     
     # Check the Video length
@@ -66,13 +66,18 @@ def extracting_frames(video_name, save_path, skip_frames=5):
     cap.release()
     return 0
 
-def is_index_finger_up(hand_landmarks):
-    # Landmark-IDs
-    # 6 = PIP, 8 = Fingerkuppe
-    return hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y
 
-def is_fist(hand_landmarks):
-    return hand_landmarks.landmark[8].y < hand_landmarks.landmark[7].y and hand_landmarks.landmark[12].y < hand_landmarks.landmark[10].y and hand_landmarks.landmark[16].y < hand_landmarks.landmark[14].y and hand_landmarks.landmark[20].y < hand_landmarks.landmark[18].y
+def is_index_finger_up(hand_landmarks):
+    return hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y
+    
+    
+
+def is_middle_finger_up(hand_landmarks):
+    return hand_landmarks.landmark[12].y < hand_landmarks.landmark[10].y
+    
+def is_pinky_finger_up(hand_landmarks):
+    return hand_landmarks.landmark[20].y < hand_landmarks.landmark[18].y
+    
 
 def live_tracking():
     mp_hands = mp.solutions.hands
@@ -92,14 +97,19 @@ def live_tracking():
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                if is_index_finger_up(hand_landmarks):
+                if is_middle_finger_up(hand_landmarks):
                     keyboard.press('w')
                 else:
                     keyboard.release('w')
-                # if is_fist(hand_landmarks):
-                #     keyboard.press('space')
-                # else:
-                #     keyboard.release('space')
+                if is_index_finger_up(hand_landmarks):
+                    keyboard.press('d')
+                else:
+                    keyboard.release('d')
+                if is_pinky_finger_up(hand_landmarks):
+                    keyboard.press('a')
+                else:
+                    keyboard.release('a')
+
                     
 
         cv2.imshow("Handerkennung", image)
