@@ -23,14 +23,14 @@ def _connection():
             password = db_password,
             host = db_host,
             port = db_port)
-        print(f"Database Connection to {db_name} successfully established")
+        #print(f"Database Connection to {db_name} successfully established")
         return dbconn
 
     except Exception as e:
         raise DatabaseError(f"Connection to Database {db_name} failed with Error: \n{str(e)}")
 
 
-def query(statement):
+def query(statement: str):
 
     conn = _connection()
     with conn.cursor() as curs:
@@ -40,14 +40,12 @@ def query(statement):
     return fetched_data
 
 
-def insert(table: str, values: [tuple] =None, slist: [list[tuple],[tuple]]=None, type: str ="insert"):
+def insert(table: str, values: [tuple]=None, slist: [list[tuple],[tuple]]=None, operation: str ="insert"):
 
     if not table or table == "":
         return ("Please provide a 'table' when using this function")
-
-    if not values or len(values) < 1 and not slist:
+    if (not values or len(values) < 1) and not slist:
         return ("Please provide a 'value' or 'list' when using this function")
-
     if slist and values:
         return ("Please provide either a 'value' or a 'list' when using this function")
 
@@ -58,11 +56,13 @@ def insert(table: str, values: [tuple] =None, slist: [list[tuple],[tuple]]=None,
 
 
     columns_tuple = tuple([column[0] for column in return_value])
+    columns_string = "(" + ", ".join(columns_tuple) + ")" # Values in the correct form for Statement (value1,value2)
     columns_count = len(columns_tuple) # number of placeholder %s to generate
-    value_placeholder = f"({('%s,' * (columns_count - 1) + '%s')})"
+    value_placeholder = f"({('%s,' * (columns_count - 1) + '%s')})" # Creates (%s,%s,...) with the number of columns
 
-    if type == "insert":
-        statement = f"INSERT INTO {table} {columns_tuple} VALUES {value_placeholder}"
+
+    if operation == "insert":
+        statement = f"INSERT INTO {table} {columns_string} VALUES {value_placeholder}"
 
 
     connection = _connection()
@@ -70,10 +70,12 @@ def insert(table: str, values: [tuple] =None, slist: [list[tuple],[tuple]]=None,
 
         if not slist and values:
             cursor.execute(statement,values)
+            connection.commit()
             return cursor.statusmessage
 
-        if type(slist) == list and len(slist) > 0:
+        if not values and slist:
             cursor.executemany(statement,slist)
+            connection.commit()
             return cursor.statusmessage
 
     connection.close()
