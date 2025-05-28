@@ -58,7 +58,7 @@ def extracting_frames(video_name, save_path, skip_frames=5):
         if ret and count % skip_frames == 0:
             cv2.imwrite(f"{save_path}{file_name_without_ext}_{random_string}_{count}.jpg", frame)
             count += 1
-            print(count)
+            print(f"Frame {count}")
         else:
             count += 1
     else:
@@ -66,14 +66,11 @@ def extracting_frames(video_name, save_path, skip_frames=5):
     cap.release()
     return 0
 
+def is_thumb_up(hand_landmarks):
+    return hand_landmarks.landmark[4].x < hand_landmarks.landmark[1].x
 
 def is_index_finger_up(hand_landmarks):
     return hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y
-    
-    
-
-def is_middle_finger_up(hand_landmarks):
-    return hand_landmarks.landmark[12].y < hand_landmarks.landmark[10].y
     
 def is_pinky_finger_up(hand_landmarks):
     return hand_landmarks.landmark[20].y < hand_landmarks.landmark[18].y
@@ -86,40 +83,45 @@ def live_tracking():
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)
+    try:
+        while True:
+            success, image = cap.read()
+            if not success:
+                break
 
-    while True:
-        success, image = cap.read()
-        if not success:
-            break
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            results = hands.process(image_rgb)
 
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = hands.process(image_rgb)
-
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                if is_middle_finger_up(hand_landmarks):
-                    keyboard.press('w')
-                else:
-                    keyboard.release('w')
-                if is_index_finger_up(hand_landmarks):
-                    keyboard.press('d')
-                else:
-                    keyboard.release('d')
-                if is_pinky_finger_up(hand_landmarks):
-                    keyboard.press('a')
-                else:
-                    keyboard.release('a')
+            if results.multi_hand_landmarks:
+                for hand_landmarks in results.multi_hand_landmarks:
+                    if is_index_finger_up(hand_landmarks):
+                        keyboard.press('w')
+                    else:
+                        keyboard.release('w')
+                    if is_thumb_up(hand_landmarks):
+                        keyboard.press('d')
+                    else:
+                        keyboard.release('d')
+                    if is_pinky_finger_up(hand_landmarks):
+                        keyboard.press('a')
+                    else:
+                        keyboard.release('a')
 
                     
 
-        cv2.imshow("Handerkennung", image)
+            cv2.imshow("Handerkennung", image)
+  
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    except:
+        print("ERROR")
 
-    cap.release()
-    cv2.destroyAllWindows()
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    live_tracking()
+    extracting_frames("pinky.MP4", "C:/Users/am-user453/Desktop/Hand_recognition/Projekt/project_assets/frames/pinky/")
+                    
