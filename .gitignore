@@ -2,3 +2,8 @@ training/acquisitions/
 training/extracted_pngs
 training/data_split
 model_output
+training/Fehlerkaftebilder/
+training/alle_daten/
+training/labelprufung/
+training/realtest/
+training/resultat/
