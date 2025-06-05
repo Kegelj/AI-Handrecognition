@@ -39,7 +39,12 @@
 version: '3'
 x-airflow-common:
   &airflow-common
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.0.2}
+  build:
+    context: ../.
+    dockerfile: cloud_data/Dockerfile
+  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.0.2}
+  env_file:
+    - path: ../.env
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -54,7 +59,8 @@ x-airflow-common:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
-    - ./airflow_data:/tmp/airflow_data # mount data folder into container
+    - ./airflow_data:/tmp/airflow_data
+    - ./connectors:/opt/connectors
   user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
   depends_on:
     redis:
@@ -65,6 +71,7 @@ x-airflow-common:
 services:
   postgres:
     image: postgres:13
+    container_name: ai-hr_Postgres
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -79,6 +86,7 @@ services:
 
   redis:
     image: redis:latest
+    container_name: ai-hr_Redis
     ports:
       - 6379:6379
     healthcheck:
@@ -90,6 +98,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
+    container_name: ai-hr_Airflow_Webserver
     command: webserver
     ports:
       - 8080:8080
@@ -102,16 +111,19 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
+    container_name: ai-hr_Airflow_Sheduler
     command: scheduler
     restart: always
 
   airflow-worker:
     <<: *airflow-common
+    container_name: ai-hr_Airflow_Worker
     command: celery worker
     restart: always
 
   airflow-init:
     <<: *airflow-common
+    container_name: ai-hr_Airflow_INIT
     command: version
     environment:
       <<: *airflow-common-env
@@ -122,6 +134,7 @@ services:
 
   flower:
     <<: *airflow-common
+    container_name: ai-hr_Airflow_Flower
     command: celery flower
     ports:
       - 5555:5555

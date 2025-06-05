@@ -1,6 +1,9 @@
 import os
 import psycopg2
-from dotenv import load_dotenv
+
+if os.name == "nt":
+    from dotenv import load_dotenv
+    load_dotenv()
 
 
 class DatabaseError(Exception):
@@ -9,7 +12,6 @@ class DatabaseError(Exception):
 
 def _connection():
 
-    load_dotenv()
     db_name = os.getenv("POSTGRES_DBNAME")
     db_user = os.getenv("POSTGRES_USER")
     db_password = os.getenv("POSTGRES_PASSWORD")
@@ -39,8 +41,8 @@ def query(statement: str):
     conn.close()
     return fetched_data
 
-
-def insert(table: str, values: [tuple]=None, slist: [list[tuple],[tuple]]=None, operation: str ="insert"):
+# insert(table: str, values: [tuple]=None, slist: [list[tuple],[tuple]]=None, operation: str ="insert")
+def insert(table, values=None, slist=None, operation="insert"):
 
     if not table or table == "":
         return ("Please provide a 'table' when using this function")

@@ -1,0 +1,47 @@
+AIRFLOW
+
+List DAGS
+{
+    "dags": [
+        {
+            "dag_id": "Save_file_data_to_database",
+            "description": null,
+            "file_token": "Ii9vcHQvYWlyZmxvdy9kYWdzL3BpcGVsaW5lX2RhdGFiYXNlLnB5Ig.2WY2_lM6bGCNVSBHY_HM8MQr27E",
+            "fileloc": "/opt/airflow/dags/pipeline_database.py",
+            "is_paused": true,
+            "is_subdag": false,
+            "owners": [
+                "airflow"
+            ],
+            "root_dag_id": null,
+            "schedule_interval": {
+                "__type": "CronExpression",
+                "value": "*/5 * * * *"
+            },
+            "tags": [
+            ]
+        }
+    ],
+    "total_entries": 1
+}
+
+INFORMATION ABOUT DAG
+
+{
+    "dag_id": "Save_file_data_to_database",
+    "description": null,
+    "file_token": "Ii9vcHQvYWlyZmxvdy9kYWdzL3BpcGVsaW5lX2RhdGFiYXNlLnB5Ig.2WY2_lM6bGCNVSBHY_HM8MQr27E",
+    "fileloc": "/opt/airflow/dags/pipeline_database.py",
+    "is_paused": true,
+    "is_subdag": false,
+    "owners": [
+        "airflow"
+    ],
+    "root_dag_id": null,
+    "schedule_interval": {
+        "__type": "CronExpression",
+        "value": "*/5 * * * *"
+    },
+    "tags": [
+    ]
+}
