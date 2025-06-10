@@ -123,5 +123,4 @@ def live_tracking():
 
 
 if __name__ == "__main__":
-    extracting_frames("pinky.MP4", "C:/Users/am-user453/Desktop/Hand_recognition/Projekt/project_assets/frames/pinky/")
-                    
+    extracting_frames("PXL_20250610_120748351.MP4", "C:/Users/am-user453/Desktop/Hand_recognition/Projekt/project_assets/videos/fPXL_20250610_120748351")
