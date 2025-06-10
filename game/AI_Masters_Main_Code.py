@@ -67,7 +67,7 @@ class Player:
         self.max_ammo = 50 # 5 Original
         self.shoot_cooldown = 0
         self.load_images()
-        asdasdasd
+
     def load_images(self):
         try:
             self.image = pygame.image.load('zelda.png').convert_alpha()
