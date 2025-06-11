@@ -11,13 +11,13 @@ set_global_policy('mixed_float16')
 
 #  Parameter
 IMG_SIZE = (128, 128)
-BATCH_SIZE = 256
-EPOCHS = 200
+BATCH_SIZE = 64
+EPOCHS = 150
 max_shift_ratio = 0.2
 
-center_weight = 0.5
-size_weight = 0.6 
-iou_weight = 0.2
+center_weight = 0.6
+size_weight = 0.8 
+iou_weight = 0.4
 
 
 
@@ -189,16 +189,16 @@ test_ds = create_tf_dataset(test_imgs, augment_data=False)
 #  Modell mit 5 Outputs (class_prob + bbox)
 def build_model():
     inputs = tf.keras.Input(shape=(128, 128, 3))
-    x = tf.keras.layers.Conv2D(32, 3, activation='relu', padding='same')(inputs)
+    x = tf.keras.layers.Conv2D(16, 3, activation='relu', padding='same')(inputs)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.MaxPooling2D()(x)
+    x = tf.keras.layers.Conv2D(32, 3, activation='relu', padding='same')(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.MaxPooling2D()(x)
     x = tf.keras.layers.Conv2D(64, 3, activation='relu', padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.MaxPooling2D()(x)
-    x = tf.keras.layers.Conv2D(128, 3, activation='relu', padding='same')(x)
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dense(128, activation='relu')(x)
-    x = tf.keras.layers.Dense(64, activation='relu')(x)  # Zwischenschritt
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
+    x = tf.keras.layers.Dense(16, activation='relu')(x)  # Zwischenschritt
     outputs = tf.keras.layers.Dense(5, activation='sigmoid')(x)
     return tf.keras.Model(inputs, outputs)
 

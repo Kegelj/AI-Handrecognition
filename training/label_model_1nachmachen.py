@@ -5,19 +5,10 @@ from pathlib import Path
 # 🔧 Parameter
 PADDING_RATIO = 0.15
 WIDEN_RATIO = 0.2
-BASE_DIR = Path("training/alle_daten")
+THUMB_I_DIR = Path("training/alle_daten/thumb_i")
 
-# 📦 Ordner-zu-Klassen-ID Mapping
-FOLDER_TO_CLASS_ID = {
-    "nop": 0,
-    "index": 1,
-    "index_pinky": 2,
-    "pinky": 3,
-    "thumb": 4,
-    "thumb_index": 5,
-    "fronthand": 6,
-    "backhand": 6
-}
+# 📦 Feste Klassen-ID für "thumb"
+CLASS_ID = 4  # wie im Hauptskript
 
 # 🤖 MediaPipe Hands initialisieren
 mp_hands = mp.solutions.hands
@@ -35,26 +26,7 @@ def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
     y2 = int(min(y_max + pad_h, height))
     return x1, y1, x2, y2
 
-for image_path in BASE_DIR.rglob("*.jpg"):
-    folder_name = image_path.parent.name
-
-    # 🚀 "_i", "_p", "_m" Suffixe entfernen
-    for suffix in ["_i", "_p", "_m"]:
-        if folder_name.endswith(suffix):
-            folder_name = folder_name[:-len(suffix)]
-            break  # Ein Suffix reicht, dann abbrechen
-
-    class_id = FOLDER_TO_CLASS_ID.get(folder_name, 0)
-
-    # 🚀 Wenn "nop", Dummy-Label schreiben
-    if folder_name == "nop":
-        label_path = image_path.with_suffix(".txt")
-        with open(label_path, "w") as f:
-            f.write("0 0 0 0 0\n")
-        print(f"✅ Dummy-Label für 'nop' geschrieben: {label_path}")
-        continue
-
-    # 🚀 Sonst: MediaPipe-Detection
+for image_path in THUMB_I_DIR.rglob("*.jpg"):
     img = cv2.imread(str(image_path))
     if img is None:
         print(f"⚠️ Fehler beim Laden: {image_path}")
@@ -84,6 +56,7 @@ for image_path in BASE_DIR.rglob("*.jpg"):
 
             label_path = image_path.with_suffix(".txt")
             with open(label_path, "w") as f:
-                f.write(f"{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
+                f.write(f"{CLASS_ID} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
+                print(f"✅ Label geschrieben: {label_path} für thumb_i")
 
-print("🎉 Fertig! Alle Labels wurden angepasst an die neue Struktur.")
+print("🎉 Fertig! Alle Labels für 'thumb_i' erstellt.")
