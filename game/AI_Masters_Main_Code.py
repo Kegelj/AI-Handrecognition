@@ -180,7 +180,7 @@ class Game:
         for goat in self.goats:
             if goat.goat_health <= 0:
                 continue
-                
+            
             if goat.image:
                 img = goat.image
                 self.screen.blit(img, (goat.goat_pos[0] - goat.goat_radius,

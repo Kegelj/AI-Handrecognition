@@ -25,6 +25,19 @@ class GameState(Enum):
     GAME_OVER = 2
     PAUSED = 3
 
+class Stopwatch():
+    def __init__(self):
+        self.past_time = None
+        self.current_time = None
+
+    def start(self):
+        self.past_time = time.time()
+
+    def get_timestamp(self):
+        self.current_time = time.time()
+        return round((self.current_time - self.past_time),2)
+
+
 class SignalEmitter(QObject):
     trigger_flash = pyqtSignal(str)  # 'left', 'up', 'right'
 
@@ -103,7 +116,7 @@ class Squirrel:
 
     def load_img(self):
         try:
-            self.image = pygame.image.load(base_path + 'squirrel.png').convert_alpha()
+            self.image = pygame.image.load(base_path + 'ivan.png').convert_alpha()
             self.image = pygame.transform.scale(self.image, (self.squir_radius * 2, self.squir_radius * 2))
         except:
             print("Couldn't load squirrel image, using circle instead")
@@ -190,6 +203,12 @@ class Game:
         self.qt_app = QApplication.instance()
         if self.qt_app is None:
             self.qt_app = QApplication(sys.argv)
+
+        self.stopwatch = Stopwatch()
+        self.stopwatch.start()
+
+        self.gestures = []
+        self.timestamps = []
         
         # Initialize pygame
         pygame.init()
@@ -197,7 +216,7 @@ class Game:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("AI Masters Game")
         self.clock = pygame.time.Clock()
-        
+
         # Initialize overlay
         self.overlay = ArrowOverlay(WIDTH, HEIGHT)
         self.overlay.show()
@@ -213,6 +232,7 @@ class Game:
         self.last_squir_spawn = 0
         self.squir_spawn_interval = 2000
         self.goats_killed = 0
+        self.time_Interval = 500 #ms
         
         # Load assets
         self.load_assets()
@@ -370,6 +390,7 @@ class Game:
             "SPACE - Shoot (uses ammo)",
             "Z - Reload",
             "P - Pause",
+            "F - Fullscreen",
             "",
             "Click START to begin"
         ]
@@ -487,15 +508,19 @@ class Game:
         elif key == pygame.K_w:
             self.overlay.trigger_arrow("up")
                 
+    def extract_infos(self):
+        return self.gestures, self.timestamps
+    
     def run(self):
         running = True
+        ticker = True
         first_goat_spawned = False
         
         while running:
             # Process Qt events
             self.qt_app.processEvents()
-            
             current_time = pygame.time.get_ticks()
+            
             
             if self.state == GameState.PLAYING and not first_goat_spawned and current_time > 1000:
                 self.spawn_goat()
@@ -524,14 +549,35 @@ class Game:
                                 self.gun_toggle_sound.play()
                         if event.key == pygame.K_UP or event.key == pygame.K_w:
                             self.player.jump()
+                            if ticker:
+                                self.timestamps.append(self.stopwatch.get_timestamp())
+                                self.gestures.append(3)
+                            ticker = False
+
+                            if pygame.time.get_ticks() % 1 == 0:
+                                ticker = True
                         if event.key == pygame.K_SPACE:
                             bullet = self.player.shoot()
+                            if ticker:
+                                self.timestamps.append(self.stopwatch.get_timestamp())
+                                self.gestures.append(4)
+                                ticker = False
+                            if pygame.time.get_ticks() % 1 == 0:
+                                ticker = True
                             if bullet:
                                 self.bullets.append(bullet)
                         if event.key == pygame.K_z:
                             self.player.reload()
                         if event.key == pygame.K_p:
                             self.state = GameState.PAUSED
+                        if event.key == pygame.K_f:
+                            fullscreen = False
+                            if not fullscreen:
+                                self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.WINDOWMAXIMIZED)
+                                fullscreen = True
+                            else:
+                                self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.WINDOWMINIMIZED)
+                                fullscreen = False
                             
                 elif self.state == GameState.PAUSED:
                     if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
@@ -548,9 +594,21 @@ class Game:
                     # Trigger arrow periodically while key is held
                     if pygame.time.get_ticks() % 20 == 0:  # Every 20ms
                         self.overlay.trigger_arrow("left")
+                        if ticker:
+                            self.timestamps.append(self.stopwatch.get_timestamp())
+                            self.gestures.append(1)
+                            ticker = False
+                        if pygame.time.get_ticks() % 1 == 0:
+                            ticker = True
                 if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
                     if pygame.time.get_ticks() % 20 == 0:
                         self.overlay.trigger_arrow("right")
+                        if ticker:
+                            self.timestamps.append(self.stopwatch.get_timestamp())
+                            self.gestures.append(2)
+                            ticker = False
+                        if pygame.time.get_ticks() % 1 == 0:
+                            ticker = True
                 
                 self.player.update(keys)
                 self.update_bullets()
@@ -595,7 +653,7 @@ class Game:
                 font = pygame.font.SysFont(None, 72)
                 text = font.render("PAUSED", True, WHITE)
                 self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
-                
+            print(self.gestures)
             pygame.display.flip()
             self.clock.tick(FPS)
             

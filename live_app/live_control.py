@@ -105,9 +105,7 @@ def live_tracking():
                     if is_pinky_finger_up(hand_landmarks):
                         keyboard.press('a')
                     else:
-                        keyboard.release('a')
-
-                    
+                        keyboard.release('a')  
 
             cv2.imshow("Handerkennung", image)
   
@@ -123,4 +121,4 @@ def live_tracking():
 
 
 if __name__ == "__main__":
-    extracting_frames("PXL_20250610_120748351.MP4", "C:/Users/am-user453/Desktop/Hand_recognition/Projekt/project_assets/videos/fPXL_20250610_120748351")
+    live_tracking()
