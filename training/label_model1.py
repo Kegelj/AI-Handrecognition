@@ -2,12 +2,12 @@ import cv2
 import mediapipe as mp
 from pathlib import Path
 
-# 🔧 Parameter
-PADDING_RATIO = 0.15
-WIDEN_RATIO = 0.2
-BASE_DIR = Path("training/alle_daten")
+#  Parameter
+PADDING_RATIO = 0.3
+WIDEN_RATIO = 0.3
+BASE_DIR = Path("training/scaled_daten")
 
-# 📦 Ordner-zu-Klassen-ID Mapping
+#  Ordner-zu-Klassen-ID Mapping
 FOLDER_TO_CLASS_ID = {
     "nop": 0,
     "index": 1,
@@ -19,7 +19,7 @@ FOLDER_TO_CLASS_ID = {
     "backhand": 6
 }
 
-# 🤖 MediaPipe Hands initialisieren
+#  MediaPipe Hands initialisieren
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=True)
 
@@ -38,7 +38,7 @@ def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
 for image_path in BASE_DIR.rglob("*.jpg"):
     folder_name = image_path.parent.name
 
-    # 🚀 "_i", "_p", "_m" Suffixe entfernen
+    #  "_i", "_p", "_m" Suffixe entfernen
     for suffix in ["_i", "_p", "_m"]:
         if folder_name.endswith(suffix):
             folder_name = folder_name[:-len(suffix)]
@@ -46,18 +46,18 @@ for image_path in BASE_DIR.rglob("*.jpg"):
 
     class_id = FOLDER_TO_CLASS_ID.get(folder_name, 0)
 
-    # 🚀 Wenn "nop", Dummy-Label schreiben
+    #  Wenn "nop", Dummy-Label schreiben
     if folder_name == "nop":
         label_path = image_path.with_suffix(".txt")
         with open(label_path, "w") as f:
             f.write("0 0 0 0 0\n")
-        print(f"✅ Dummy-Label für 'nop' geschrieben: {label_path}")
+        print(f" Dummy-Label für 'nop' geschrieben: {label_path}")
         continue
 
-    # 🚀 Sonst: MediaPipe-Detection
+    #  Sonst: MediaPipe-Detection
     img = cv2.imread(str(image_path))
     if img is None:
-        print(f"⚠️ Fehler beim Laden: {image_path}")
+        print(f" Fehler beim Laden: {image_path}")
         continue
 
     height, width = img.shape[:2]
@@ -86,4 +86,4 @@ for image_path in BASE_DIR.rglob("*.jpg"):
             with open(label_path, "w") as f:
                 f.write(f"{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
 
-print("🎉 Fertig! Alle Labels wurden angepasst an die neue Struktur.")
+print(" Fertig! Alle Labels wurden angepasst an die neue Struktur.")

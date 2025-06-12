@@ -2,15 +2,15 @@ import cv2
 import mediapipe as mp
 from pathlib import Path
 
-# 🔧 Parameter
+#  Parameter
 PADDING_RATIO = 0.15
 WIDEN_RATIO = 0.2
 THUMB_I_DIR = Path("training/alle_daten/thumb_i")
 
-# 📦 Feste Klassen-ID für "thumb"
+#  Feste Klassen-ID für "thumb"
 CLASS_ID = 4  # wie im Hauptskript
 
-# 🤖 MediaPipe Hands initialisieren
+#  MediaPipe Hands initialisieren
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=True)
 
@@ -29,7 +29,7 @@ def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
 for image_path in THUMB_I_DIR.rglob("*.jpg"):
     img = cv2.imread(str(image_path))
     if img is None:
-        print(f"⚠️ Fehler beim Laden: {image_path}")
+        print(f" Fehler beim Laden: {image_path}")
         continue
 
     height, width = img.shape[:2]
@@ -57,6 +57,6 @@ for image_path in THUMB_I_DIR.rglob("*.jpg"):
             label_path = image_path.with_suffix(".txt")
             with open(label_path, "w") as f:
                 f.write(f"{CLASS_ID} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
-                print(f"✅ Label geschrieben: {label_path} für thumb_i")
+                print(f" Label geschrieben: {label_path} für thumb_i")
 
-print("🎉 Fertig! Alle Labels für 'thumb_i' erstellt.")
+print(" Fertig! Alle Labels für 'thumb_i' erstellt.")

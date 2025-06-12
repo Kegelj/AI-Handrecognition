@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 
 class MyImageAugmentor:
-    def __init__(self, img_size=(128, 128), max_shift_ratio=0.1):
+    def __init__(self, img_size=(256, 256), max_shift_ratio=0.1):
         self.img_size = img_size
         self.max_shift_ratio = max_shift_ratio
 
@@ -25,19 +25,46 @@ class MyImageAugmentor:
         img.set_shape([self.img_size[0], self.img_size[1], 3])
         return img
 
-    def tf_random_cutout(self, img, max_fraction=0.2):
-        def cutout_np(img_np):
+    def tf_random_cutout(self, img, bbox, max_fraction=0.2):
+        def cutout_np(img_np, bbox_np):
             img_np = img_np.numpy()  # Tensor → NumPy-Array
             h, w, _ = img_np.shape
             cutout_w = int(w * max_fraction)
             cutout_h = int(h * max_fraction)
-            x1 = np.random.randint(0, w - cutout_w)
-            y1 = np.random.randint(0, h - cutout_h)
-            img_np[y1:y1 + cutout_h, x1:x1 + cutout_w, :] = 0
+
+        # Bounding Box in Pixelkoordinaten
+            x_c, y_c, bw, bh = bbox_np[1] * w, bbox_np[2] * h, bbox_np[3] * w, bbox_np[4] * h
+            x_min = int(x_c - bw / 2)
+            x_max = int(x_c + bw / 2)
+            y_min = int(y_c - bh / 2)
+            y_max = int(y_c + bh / 2)
+
+            tries = 0
+            while True:
+            # Zufällige linke obere Ecke
+                x1 = np.random.randint(0, w - cutout_w)
+                y1 = np.random.randint(0, h - cutout_h)
+                x2 = x1 + cutout_w
+                y2 = y1 + cutout_h
+
+            # Überprüfen, ob sich der Cutout-Bereich mit der BBox überschneidet
+                if x2 <= x_min or x1 >= x_max or y2 <= y_min or y1 >= y_max:
+                # Kein Überlapp – perfekt!
+                    img_np[y1:y2, x1:x2, :] = 0
+                    break
+
+                tries += 1
+                if tries > 100:
+                # Fallback: nach 100 Versuchen – trotzdem platzieren (damit Code nie hängt!)
+                    img_np[y1:y2, x1:x2, :] = 0
+                    break
+
             return img_np.astype(np.float32)
-        img = tf.py_function(cutout_np, [img], tf.float32)
+
+        img = tf.py_function(cutout_np, [img, bbox], tf.float32)
         img.set_shape([self.img_size[0], self.img_size[1], 3])
         return img
+
 
     def randomize_dark_and_bright_pixels_palette(self, image, dark_threshold=30, bright_threshold=220, palette=None):
         image = image.copy()
@@ -60,7 +87,7 @@ class MyImageAugmentor:
         img = self.tf_random_brightness_contrast(img)
         img = self.tf_random_hue_saturation(img)
         img = self.tf_random_blur(img)
-        img = self.tf_random_cutout(img)
+        img = self.tf_random_cutout(img,bbox)
 
         # 🚫 Teilweise deaktiviert: random_wrap_shift_no_bbox_clipping
         # def wrap_shift_opencv(img_np, bbox_np):

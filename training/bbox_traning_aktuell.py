@@ -13,9 +13,9 @@ from uuid import uuid4
 import csv
 
 #  Parameter
-IMG_SIZE = (128, 128)
-BATCH_SIZE = 64
-EPOCHS = 30
+IMG_SIZE = (256, 256)
+BATCH_SIZE = 128
+EPOCHS = 50
 max_shift_ratio = 0.2
 
 
@@ -27,8 +27,7 @@ unique_id = uuid4()
 def load_image_and_label(image_path):
     txt_path = image_path.with_suffix(".txt")
     img = cv2.imread(str(image_path))
-    img = cv2.resize(img, IMG_SIZE)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) / 255.0
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) / 255.0  # Kein Resize mehr!
     with open(txt_path) as f:
         cls, x_c, y_c, w, h = map(float, f.readline().split())
         if cls == 0:
@@ -36,6 +35,7 @@ def load_image_and_label(image_path):
         else:
             label = np.array([1, x_c, y_c, w, h], dtype=np.float32)
     return img.astype(np.float32), label
+
 
 #  Dataset-Erstellung
 def create_tf_dataset(image_paths, augment_data=False):
@@ -55,7 +55,7 @@ def create_tf_dataset(image_paths, augment_data=False):
     return dataset.batch(BATCH_SIZE).prefetch(1)
 
 #  Bildpfade laden und Split
-all_data_dir = Path("training/alle_daten")
+all_data_dir = Path("training/scaled_daten")
 all_imgs = sorted([p for p in all_data_dir.rglob("*.jpg") if (p.with_suffix(".txt")).exists()])
 train_imgs, test_imgs = train_test_split(all_imgs, test_size=0.2, random_state=42, shuffle=True)
 print(f" Train: {len(train_imgs)} Bilder, Test: {len(test_imgs)} Bilder")
@@ -66,7 +66,7 @@ test_ds = create_tf_dataset(test_imgs, augment_data=False)
 
 #  Modell mit 5 Outputs (class_prob + bbox)
 def build_model():
-    inputs = tf.keras.Input(shape=(128, 128, 3))
+    inputs = tf.keras.Input(shape=(256, 256, 3))
 
     # Block 1
     x = tf.keras.layers.Conv2D(16, 3, activation='relu', padding='same')(inputs)
@@ -107,7 +107,7 @@ def build_model():
 #  Modell & Training
 model = build_model()
 losses = HandboxLosses()
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.01),loss=losses.final_loss, metrics=['accuracy'])
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),loss=losses.final_loss, metrics=['accuracy'])
 mse_history, acc_history = [], []
 
 best_center_match = 1e10  # kleinster Center-Distance
@@ -192,7 +192,7 @@ for epoch in range(EPOCHS):
     print(f" Genauigkeit (alle Bedingungen erfüllt): {acc:.2%}")
     print(f" Kombinierter Score: {combined_score:.5f}")
     
-    # 📌 CSV-Logging in jeder Epoche!
+    #  CSV-Logging in jeder Epoche!
     with open(csv_file, mode='a', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([

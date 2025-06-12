@@ -8,3 +8,8 @@ training/labelprufung/
 training/realtest/
 training/resultat/
 training/alle_daten_alt/
+training/resultat_bbox/
+training/scaled_daten/
+training/scr/__pycache__/
+training/scr/__pycache__/augments.cpython-311.pyc
+training/scr/__pycache__/losses.cpython-311.pyc

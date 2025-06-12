@@ -34,8 +34,7 @@ class HandboxLosses:
         c2 = tf.square(enclose_x2 - enclose_x1) + tf.square(enclose_y2 - enclose_y1) + 1e-7
 
         v = (4 / (np.pi ** 2)) * tf.square(tf.atan(w_true / (h_true + 1e-7)) - tf.atan(w_pred / (h_pred + 1e-7)))
-        with tf.device('/CPU:0'):
-            alpha = v / (1 - iou + v + 1e-7)
+        alpha = v / (1 - iou + v + 1e-7)
 
         ciou = iou - center_dist / c2 - alpha * v
         loss = 1 - ciou
