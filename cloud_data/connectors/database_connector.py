@@ -11,6 +11,10 @@ class DatabaseError(Exception):
 
 
 def _connection():
+    """
+    Establishes a connection to a database using the Environment variables defined in the .env File
+    :return: Returns a connection Object that can be used with .cursor
+    """
 
     db_name = os.getenv("POSTGRES_DBNAME")
     db_user = os.getenv("POSTGRES_USER")
@@ -32,6 +36,28 @@ def _connection():
         raise DatabaseError(f"Connection to Database {db_name} failed with Error: \n{str(e)}")
 
 
+def _placeholder(value_list, origin="db"):
+    """
+    Used as a helper function to get a nice string format of the provided list to be used in DB Statements.
+
+    :param value_list: [('col1',),('col2')],["columnname1","columnname2"]
+    :param input: db (default),data (for lists)
+    :return: int 3, str (col1,col2), str (%s,%s)
+    """
+
+    if origin == "db":
+        columns_tuple = tuple([column[0] for column in value_list])
+        columns_count = len(columns_tuple)
+    if origin == "data":
+        columns_tuple = value_list
+        columns_count = len(columns_tuple[0])
+
+    columns_string = "(" + ", ".join(columns_tuple) + ")"  # Values in the correct form for Statement (value1,value2)
+    value_placeholder = f"({('%s,' * (columns_count - 1) + '%s')})"  # Creates (%s,%s,...) with the number of columns
+
+    return columns_count, columns_string, columns_tuple, value_placeholder
+
+
 def query(statement: str):
 
     conn = _connection()
@@ -41,43 +67,104 @@ def query(statement: str):
     conn.close()
     return fetched_data
 
-# insert(table: str, values: [tuple]=None, slist: [list[tuple],[tuple]]=None, operation: str ="insert")
-def insert(table, values=None, slist=None, operation="insert"):
+
+def check_columns(tablename):
+    query_columns = f"SELECT column_name as column_count FROM information_schema.columns WHERE table_name = '{tablename}' and column_name != 'id' order by ordinal_position" # ordinal_position
+    return query(query_columns)
+
+
+# insert(table: str, values: [tuple] or [list[tuple],[tuple]]=None,columns: [list]=None, operation: str ="insert_all")
+def insert(table, values=None, amount="single",columns=None, operation="insert_all"):
+    """
+    Database function to execute Statements.
+    You will need to provide a table name, values in the form [('Ivan',23)] or  [('Ovin',23),('Ivan',25),....].
+    Optional: columns ["col1","col2",..] (column name for specific inserts - can only be used in combination with operation "insert_specific")
+    operation:
+        insert_all - you need to provide as many values as columns of the Tables
+        insert_specific - Only specified columns will be filled with values (have to be the same number of items)
+    :param table: String - Name of the used database table
+    :param values: list [('Ivan',23)] or [('Ovin',23),('Ivan',25),....]
+    :param columns: list ["col1","col2",..]
+    :param operation: insert_all,insert_specific
+    :return: Feedback if it worked
+    """
+
 
     if not table or table == "":
         return ("Please provide a 'table' when using this function")
-    if (not values or len(values) < 1) and not slist:
-        return ("Please provide a 'value' or 'list' when using this function")
-    if slist and values:
-        return ("Please provide either a 'value' or a 'list' when using this function")
+
+    if not values or (isinstance(values, (list, tuple)) and len(values) == 0):
+        return "Please provide 'values' when using this function"
+
+    if columns == None:
+        table_columns = check_columns(table)
+    else:
+        table_columns = columns
+    columns_count, columns_string,_, value_placeholder = _placeholder(table_columns)
 
 
-
-    query_columns= f"SELECT column_name as column_count FROM information_schema.columns WHERE table_name = '{table}' and column_name != 'id' order by column_name"
-    return_value = query(query_columns) #Output of query is [(str,),(str,),...] in alphabetical order
-
-
-    columns_tuple = tuple([column[0] for column in return_value])
-    columns_string = "(" + ", ".join(columns_tuple) + ")" # Values in the correct form for Statement (value1,value2)
-    columns_count = len(columns_tuple) # number of placeholder %s to generate
-    value_placeholder = f"({('%s,' * (columns_count - 1) + '%s')})" # Creates (%s,%s,...) with the number of columns
-
-
-    if operation == "insert":
+    if operation == "insert_all":
         statement = f"INSERT INTO {table} {columns_string} VALUES {value_placeholder}"
+        print(statement)
+
+    if operation == "insert_specific":
+        _,_,value_placeholder = _placeholder(values, origin="data")
+        statement = f"INSERT INTO {table} {columns_string} VALUES {value_placeholder[2]}"
 
 
     connection = _connection()
-    with connection.cursor() as cursor:
+    try:
+        with connection.cursor() as cursor:
+            if amount == "single":
+                cursor.execute(statement, values)
+                #print(cursor.mogrify(statement, values))
+            else:
+                cursor.executemany(statement, values)
 
-        if not slist and values:
-            cursor.execute(statement,values)
+
             connection.commit()
             return cursor.statusmessage
 
-        if not values and slist:
-            cursor.executemany(statement,slist)
-            connection.commit()
-            return cursor.statusmessage
+    finally:
+        connection.close()
 
-    connection.close()
+def copy_to_db(filepath: str,table: str,columns: list,format="CSV",header=True,delimiter=";"):
+    """
+    Function to upload files to database tables using the COPY Statement.
+
+    :param filepath: Path to the file to be uploaded
+    :param table: Name of the table to be used for the upload
+    :param columns: [str,str,..] List of strings with the name of the columns to be filled
+    :param format: Defines the fileformat to be used (text, CSV, binary)
+    :param header: Define if the file has a header
+    :param delimiter: Define which seperater is used in the file
+    :return: Message if the operation was successful or not
+    """
+
+    if not filepath or filepath == "" or not os.path.isfile(filepath):
+        return ("Please provide a working filepath when using this function")
+    if not table or table == "":
+        return ("Please provide a table when using this function")
+    if not columns or not isinstance(columns,(list,tuple)):
+        return ("Please provide columns in list form when using this function")
+
+    header = "HEADER, " if header else ""
+    copy_statement = f"COPY {table}({','.join(columns)}) FROM STDIN WITH (FORMAT {format}, {header}DELIMITER '{delimiter}')"
+    #print(copy_statement)
+
+    try:
+        connection = _connection()
+        with connection.cursor() as cursor:
+            with open(filepath, 'r') as file:
+                cursor.copy_expert(copy_statement, file)
+            connection.commit()
+        print(f"File ({filepath}) copied succesfully to table {table}.")
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        if connection:
+            connection.rollback()
+        print(f"Error while importing: {error}")
+
+    finally:
+        if connection:
+            connection.close()
