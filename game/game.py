@@ -4,8 +4,6 @@ import random
 import time
 import math
 import os
-from pathlib import Path
-import threading
 from PyQt5.QtWidgets import QApplication, QLabel, QWidget
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt5.QtGui import QPixmap
@@ -42,7 +40,7 @@ class SignalEmitter(QObject):
     trigger_flash = pyqtSignal(str)  # 'left', 'up', 'right'
 
 class ArrowOverlay(QWidget):
-    def __init__(self, width, height):
+    def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -207,6 +205,7 @@ class Game:
         self.stopwatch = Stopwatch()
         self.stopwatch.start()
 
+        self.pressed_keys = {}
         self.gestures = []
         self.timestamps = []
         
@@ -218,7 +217,7 @@ class Game:
         self.clock = pygame.time.Clock()
 
         # Initialize overlay
-        self.overlay = ArrowOverlay(WIDTH, HEIGHT)
+        self.overlay = ArrowOverlay()
         self.overlay.show()
         
         # Game state
@@ -233,10 +232,21 @@ class Game:
         self.squir_spawn_interval = 2000
         self.goats_killed = 0
         self.time_Interval = 500 #ms
+        self.fullscreen = False
+        self.user_screen = pygame.display.Info()
         
         # Load assets
         self.load_assets()
         self.setup_audio()
+
+    def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.screen = pygame.display.set_mode((self.user_screen.current_w, self.user_screen.current_h), pygame.FULLSCREEN)
+            self.overlay.setGeometry(self.user_screen.current_w - 410, 100, 400, 150)
+        else:
+            self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+            self.overlay.setGeometry(600, 100, 400, 150)
 
     def spawn_goat(self):
         """Create a new goat at the right edge of the screen"""
@@ -508,9 +518,27 @@ class Game:
         elif key == pygame.K_w:
             self.overlay.trigger_arrow("up")
                 
+    # One time press checker, to avoid multiple gesture outputs
+    def handle_otp(self, key):
+        if not self.pressed_keys.get(key, False):
+            self.pressed_keys[key] = True
+
+        if key in (pygame.K_LEFT, pygame.K_a):
+            self.gestures.append(1)
+            self.timestamps.append(self.stopwatch.get_timestamp())
+        elif key in (pygame.K_RIGHT, pygame.K_d):
+            self.gestures.append(2)
+            self.timestamps.append(self.stopwatch.get_timestamp())
+        elif key in (pygame.K_UP, pygame.K_w):
+            self.gestures.append(3)
+            self.timestamps.append(self.stopwatch.get_timestamp())
+        elif key == pygame.K_SPACE:
+            self.gestures.append(4)
+            self.timestamps.append(self.stopwatch.get_timestamp())
+
     def extract_infos(self):
         return self.gestures, self.timestamps
-    
+   
     def run(self):
         running = True
         ticker = True
@@ -542,28 +570,16 @@ class Game:
                     if event.type == pygame.KEYDOWN:
                         # Trigger arrow overlay for movement keys
                         self.handle_key_press(event.key)
+                        self.handle_otp(event.key)
                         
                         if event.key == pygame.K_x:  
                             self.player.gun_visible = not self.player.gun_visible
                             if hasattr(self, 'gun_toggle_sound') and self.gun_toggle_sound:
                                 self.gun_toggle_sound.play()
                         if event.key == pygame.K_UP or event.key == pygame.K_w:
-                            self.player.jump()
-                            if ticker:
-                                self.timestamps.append(self.stopwatch.get_timestamp())
-                                self.gestures.append(3)
-                            ticker = False
-
-                            if pygame.time.get_ticks() % 1 == 0:
-                                ticker = True
+                            self.player.jump()                           
                         if event.key == pygame.K_SPACE:
                             bullet = self.player.shoot()
-                            if ticker:
-                                self.timestamps.append(self.stopwatch.get_timestamp())
-                                self.gestures.append(4)
-                                ticker = False
-                            if pygame.time.get_ticks() % 1 == 0:
-                                ticker = True
                             if bullet:
                                 self.bullets.append(bullet)
                         if event.key == pygame.K_z:
@@ -571,13 +587,7 @@ class Game:
                         if event.key == pygame.K_p:
                             self.state = GameState.PAUSED
                         if event.key == pygame.K_f:
-                            fullscreen = False
-                            if not fullscreen:
-                                self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.WINDOWMAXIMIZED)
-                                fullscreen = True
-                            else:
-                                self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.WINDOWMINIMIZED)
-                                fullscreen = False
+                            self.toggle_fullscreen()
                             
                 elif self.state == GameState.PAUSED:
                     if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
@@ -594,21 +604,11 @@ class Game:
                     # Trigger arrow periodically while key is held
                     if pygame.time.get_ticks() % 20 == 0:  # Every 20ms
                         self.overlay.trigger_arrow("left")
-                        if ticker:
-                            self.timestamps.append(self.stopwatch.get_timestamp())
-                            self.gestures.append(1)
-                            ticker = False
+
                         if pygame.time.get_ticks() % 1 == 0:
                             ticker = True
                 if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                    if pygame.time.get_ticks() % 20 == 0:
                         self.overlay.trigger_arrow("right")
-                        if ticker:
-                            self.timestamps.append(self.stopwatch.get_timestamp())
-                            self.gestures.append(2)
-                            ticker = False
-                        if pygame.time.get_ticks() % 1 == 0:
-                            ticker = True
                 
                 self.player.update(keys)
                 self.update_bullets()
@@ -653,14 +653,14 @@ class Game:
                 font = pygame.font.SysFont(None, 72)
                 text = font.render("PAUSED", True, WHITE)
                 self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
-            print(self.gestures)
             pygame.display.flip()
             self.clock.tick(FPS)
+            print(self.gestures)
             
         # Cleanup
         self.overlay.close()
-        pygame.quit()
         self.qt_app.quit()
+        pygame.quit()
         sys.exit()
 
 if __name__ == "__main__":
