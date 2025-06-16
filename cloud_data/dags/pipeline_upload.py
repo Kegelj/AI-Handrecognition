@@ -1,50 +1,82 @@
 import sys
 sys.path.append("/opt")
 from connectors import database_connector as dc
-
+from pathlib import Path
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
 
 
+
 def upload_stagingdata():
-"""
-1) Dateien aus dem Ordner airflow_data/data_bbox und Ordner airflow_data/data_game einlesen.
-2) Je nachdem welcher Ordner gerade bearbeitet wird, müssen unterschiedliche Parameter gesetzt werden
-3) die Funktion dc.copy_to_db verwenden (uploaded file in die Staging Form:
-    bbox:
-        filepath = airflow_data/data_bbox/dateiname.csv
-        tablename = staging_bbox
-        columns = [('training',),
-                    ('epoch',),
-                    ('current_time_start',),
-                    ('current_time_end',),
-                    ('mean_squared_error',),
-                     ('mean_center_dist',),
-                     ('mean_size_error',),
-                     ('mean_overlap',),
-                     ('combined_score',),
-                     ('acc_all_conditions',),
-                     ('train_loss',),
-                     ('val_loss',),
-                     ('train_acc',),
-                     ('val_acc',),
-                     ('current_lr',),
-                     ('img_size',),
-                     ('batch_size',)]
-        format = "CSV"
-        header = True
-        delimiter = ","
+    base_path = Path(__file__).resolve().parents[1] / "airflow_data"
 
-    game_data:
-        filepath = airflow_data/data_game/dateiname.csv
-        tablename = staging_gamedata
-        columns = [('game_id',), ('user_name',), ('user_input',), ('timestamp',)]
-        format = "CSV"
-        header = True
-        delimiter = ","
-4) upgeloadete Datei in den Ordner data_bbox/processed/dateiname.csv oder data_game/processed/dateinname.csv verschieben
-"""
+    data_sources = {
+        "data_bbox": {
+            "table": "staging_bbox",
+            "columns": [
+                ('training',),
+                ('epoch',),
+                ('current_time_start',),
+                ('current_time_end',),
+                ('mean_squared_error',),
+                ('mean_center_dist',),
+                ('mean_size_error',),
+                ('mean_overlap',),
+                ('combined_score',),
+                ('acc_all_conditions',),
+                ('train_loss',),
+                ('val_loss',),
+                ('train_acc',),
+                ('val_acc',),
+                ('current_lr',),
+                ('img_size',),
+                ('batch_size',)
+            ]
+        },
+        "data_game": {
+            "table": "staging_gamedata",
+            "columns": [
+                ('game_id',),
+                ('user_name',),
+                ('user_input',),
+                ('timestamp',)
+            ]
+        }
+    }
 
-    dc.copy_to_db(filepath[1], tablename[1], columns[1], format="CSV", header=True, delimiter=",")
-    dc.update(table[0], column[0], value[0], action=action[0])
+    for folder_name, config in data_sources.items():
+        folder_path = base_path / folder_name
+        processed_path = folder_path / "processed"
+        processed_path.mkdir(parents=True, exist_ok=True)
+
+        for file_path in folder_path.glob("*.csv"):
+            try:
+                print(f" Processing file: {file_path.name}")
+
+                columns_as_list = [col[0] for col in config["columns"]]
+
+                dc.copy_to_db(
+                    filepath=str(file_path),
+                    table=config["table"],
+                    columns=columns_as_list,
+                    format="CSV",
+                    header=True,
+                    delimiter=","
+                )
+
+
+                new_path = processed_path / file_path.name
+                file_path.rename(new_path)
+                print(f" File moved to: {new_path}")
+
+            except Exception as e:
+                print(f" Error with file {file_path.name}: {e}")
+
+
+
+
+
+
+
+
