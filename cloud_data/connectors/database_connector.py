@@ -42,7 +42,7 @@ def _placeholder(value_list, origin="db"):
 
     :param value_list: [('col1',),('col2')],["columnname1","columnname2"]
     :param input: db (default),data (for lists)
-    :return: int 3, str (col1,col2), str (%s,%s)
+    :return: columns_count (int), columns_string (str),columns_tuple (tuple), value_placeholder ( (%s,%s) )
     """
 
     if origin == "db":
@@ -68,8 +68,15 @@ def query(statement: str):
     return fetched_data
 
 
-def check_columns(tablename):
-    query_columns = f"SELECT column_name as column_count FROM information_schema.columns WHERE table_name = '{tablename}' and column_name != 'id' order by ordinal_position" # ordinal_position
+def check_columns(tablename: str):
+    """
+    Return the names of the columns of the provided table
+
+    :param tablename: table name inside Database
+    :return: [('column1',),('column2',),..]
+    """
+
+    query_columns = f"SELECT column_name as column_count FROM information_schema.columns WHERE table_name = '{tablename}' and column_name != 'id' and column_name != 'processed' order by ordinal_position" # ordinal_position
     return query(query_columns)
 
 
@@ -168,3 +175,22 @@ def copy_to_db(filepath: str,table: str,columns: list,format="CSV",header=True,d
     finally:
         if connection:
             connection.close()
+
+
+def update(table,column,value=False,action="processed"):
+
+
+    returned_columns = check_columns(table)
+    columns = _placeholder(returned_columns)
+
+    if action == "processed":
+        statement = f"UPDATE {table} SET processed=True WHERE {column} = '{value}'"
+
+    try:
+        connection = _connection()
+        with connection.cursor() as cursor:
+            cursor.execute(statement)
+            connection.commit()
+            return cursor.statusmessage
+    finally:
+        connection.close()
