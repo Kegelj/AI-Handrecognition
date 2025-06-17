@@ -1,3 +1,4 @@
+
 training/acquisitions/
 training/extracted_pngs
 training/data_split
@@ -21,3 +22,6 @@ training/schrot
 yolo11n.pt
 training/csv.extrahieren.py
 training/Todelete/
+project_assets
+game/assets/ivan.png
+
