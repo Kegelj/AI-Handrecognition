@@ -3,7 +3,7 @@ import random
 import string
 import os
 from pathlib import Path
-from pynput.keyboard import Controller
+from pynput.keyboard import Controller, Key
 from ultralytics import YOLO
 
 # === YOLO-Klassennamen ===
@@ -65,11 +65,15 @@ def extracting_frames(video_name, save_path, skip_frames=5):
 
 # === Live Tracking mit YOLO ===
 def live_tracking_yolo():
-    model = YOLO("model_output/handzeichen_best.pt")  # Pfad zu deinem YOLO-Modell
+    model = YOLO("model_output/best.pt")  # Pfad zu deinem YOLO-Modell
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)
     print("🚀 Kamera gestartet. Drücke 'q' zum Beenden.")
+
+    # Fenster klein machen, damit das Spiel Fokus behält
+    cv2.namedWindow("YOLO Handzeichen", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("YOLO Handzeichen", 1, 1)
 
     try:
         while True:
@@ -78,7 +82,6 @@ def live_tracking_yolo():
                 break
 
             results = model(frame, verbose=False)[0]
-
             keys_pressed = set()
 
             for box in results.boxes:
@@ -97,7 +100,7 @@ def live_tracking_yolo():
                 elif label == "pinky":
                     keys_pressed.add('a')
                 elif label == "offen":
-                    keys_pressed.add('space')
+                    keys_pressed.add(Key.space)
 
                 # Bounding Box und Label anzeigen
                 xyxy = box.xyxy[0].cpu().numpy().astype(int)
@@ -106,15 +109,14 @@ def live_tracking_yolo():
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
             # Tasten steuern
-            for key in ['w', 'a', 'd', 'space']:
+            for key in ['w', 'a', 'd', Key.space]:
                 if key in keys_pressed:
                     keyboard.press(key)
                 else:
                     keyboard.release(key)
 
             cv2.imshow("YOLO Handzeichen", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            cv2.waitKey(1)
 
     finally:
         cap.release()

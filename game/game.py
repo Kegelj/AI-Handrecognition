@@ -4,6 +4,7 @@ import random
 import time
 import math
 import os
+
 from PyQt5.QtWidgets import QApplication, QLabel, QWidget
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt5.QtGui import QPixmap
@@ -129,8 +130,8 @@ class Player:
         self.jump_power = 20
         self.speed = 7
         self.facing_right = True
-        self.health = 50
-        self.max_health = 50
+        self.health = 50000
+        self.max_health = 50000
         self.ammo = 50
         self.max_ammo = 50
         self.shoot_cooldown = 0
@@ -144,31 +145,31 @@ class Player:
         except:
             print("Couldn't load player image, using circle instead")
             self.image = None
-            
+
     def update(self, keys):
-        # Horizontal movement
         if keys[pygame.K_LEFT]:
             self.pos[0] -= self.speed
             self.facing_right = False
         if keys[pygame.K_RIGHT]:
             self.pos[0] += self.speed
             self.facing_right = True
-            
-        # Apply gravity
+
+        if self.pos[0] < -self.radius:
+            self.pos[0] = WIDTH + self.radius
+        elif self.pos[0] > WIDTH + self.radius:
+            self.pos[0] = -self.radius
+
         self.gravity += 0.8
         self.pos[1] += self.gravity
-        
-        # Keep player in bounds
         self.pos[1] = max(self.radius, min(HEIGHT - 85, self.pos[1]))
-        
-        # Update shoot cooldown
+
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
-            
+
     def jump(self):
         if self.pos[1] >= HEIGHT - 85 - self.radius:
             self.gravity = -self.jump_power
-            
+
     def shoot(self):
         if not self.gun_visible:
             print("Can't shoot - gun is hidden!")
@@ -184,10 +185,10 @@ class Player:
                 'facing_right': self.facing_right
             }
         return None
-        
+
     def reload(self):
         self.ammo = self.max_ammo
-        
+
     def draw(self, screen):
         if self.image:
             img = self.image if self.facing_right else self.image_left
@@ -655,7 +656,6 @@ class Game:
                 self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
             pygame.display.flip()
             self.clock.tick(FPS)
-            print(self.gestures)
             
         # Cleanup
         self.overlay.close()
