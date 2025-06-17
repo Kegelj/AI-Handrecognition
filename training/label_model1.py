@@ -3,8 +3,8 @@ import mediapipe as mp
 from pathlib import Path
 
 # Parameter
-PADDING_RATIO = 0.3
-WIDEN_RATIO = 0.3
+PADDING_RATIO = 0.4
+WIDEN_RATIO = 0.4
 BASE_DIR = Path("training/alternativ_daten")
 
 # Ordner-zu-Klassen-ID Mapping (ohne Faust und nop)

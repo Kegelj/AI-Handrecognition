@@ -20,3 +20,4 @@ training/labels/
 training/schrot
 yolo11n.pt
 training/csv.extrahieren.py
+training/Todelete/
