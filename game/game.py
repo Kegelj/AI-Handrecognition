@@ -4,6 +4,8 @@ import random
 import time
 import math
 import os
+import pandas
+import string
 from PyQt5.QtWidgets import QApplication, QLabel, QWidget
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt5.QtGui import QPixmap
@@ -147,10 +149,10 @@ class Player:
             
     def update(self, keys):
         # Horizontal movement
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.pos[0] -= self.speed
             self.facing_right = False
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.pos[0] += self.speed
             self.facing_right = True
             
@@ -205,6 +207,8 @@ class Game:
         self.stopwatch = Stopwatch()
         self.stopwatch.start()
 
+        self.player_name = ""
+        self.name_imput_active = False
         self.pressed_keys = {}
         self.gestures = []
         self.timestamps = []
@@ -382,7 +386,28 @@ class Game:
         except:
             print("Couldn't load audio files")
             self.gun_toggle_sound = None
-            
+
+    def draw_game_over_screen(self):
+        font = pygame.font.SysFont(None, 72)
+        text = font.render("GAME OVER", True, (255, 0, 0))
+        self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+        pygame.display.flip()
+
+        time.sleep(2)
+        
+        self.screen.fill((0, 0, 0))
+        font = pygame.font.SysFont(None, 48)
+        title = font.render("Game Over", True, (255, 0, 0))
+        self.screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
+
+        prompt = font.render("Enter your name:", True, (255, 255, 255))
+        self.screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, 200))
+
+        name_surface = font.render(self.player_name, True, (0, 255, 0))
+        pygame.draw.rect(self.screen, (255, 255, 255), (WIDTH // 2 - 150, 260, 300, 50), 2)
+        self.screen.blit(name_surface, (WIDTH // 2 - 140, 265))
+
+
     def draw_menu(self):
         self.screen.fill((20, 20, 20))
         title_font = pygame.font.SysFont("Comic Sans MS", 80)
@@ -398,7 +423,6 @@ class Game:
             "Up Arrow / W - Jump",
             "X - Take gun out",
             "SPACE - Shoot (uses ammo)",
-            "Z - Reload",
             "P - Pause",
             "F - Fullscreen",
             "",
@@ -473,6 +497,8 @@ class Game:
                     squir.squir_pos[0] += 155
                     if bullet in self.bullets:
                         self.bullets.remove(bullet)
+                    else:
+                        self.player.reload()
                     if squir.squir_health <= 0:
                         self.squir.remove(squir)
                     break
@@ -537,19 +563,23 @@ class Game:
             self.timestamps.append(self.stopwatch.get_timestamp())
 
     def extract_infos(self):
-        return self.gestures, self.timestamps
-   
+        game_id = "".join(random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
+        User = self.player_name
+        df = pandas.DataFrame({"game_id": game_id,
+                               "user_name": User,
+                               "user_input": self.gestures,
+                               "timestamp": self.timestamps})
+        df.to_csv(f'{User}_{game_id}.csv')
+
+
     def run(self):
         running = True
-        ticker = True
         first_goat_spawned = False
-        
+
         while running:
-            # Process Qt events
             self.qt_app.processEvents()
             current_time = pygame.time.get_ticks()
-            
-            
+        
             if self.state == GameState.PLAYING and not first_goat_spawned and current_time > 1000:
                 self.spawn_goat()
                 first_goat_spawned = True
@@ -568,7 +598,7 @@ class Game:
                             
                 elif self.state == GameState.PLAYING:
                     if event.type == pygame.KEYDOWN:
-                        # Trigger arrow overlay for movement keys
+
                         self.handle_key_press(event.key)
                         self.handle_otp(event.key)
                         
@@ -593,21 +623,31 @@ class Game:
                     if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                         self.state = GameState.PLAYING
                         
+                elif self.state == GameState.GAME_OVER and self.game_over_phase == 2:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_BACKSPACE:
+                            self.player_name = self.player_name[:-1]
+                        elif event.key == pygame.K_RETURN:
+                            self.extract_infos()
+                            self.state = GameState.MENU
+                        else:
+                            if len(self.player_name) < 10 and event.unicode.isprintable():
+                                self.player_name += event.unicode
+
+         
             if self.state == GameState.MENU:
                 self.draw_menu()
                 
             elif self.state == GameState.PLAYING:
                 keys = pygame.key.get_pressed()
                 
-                # Handle continuous key presses and trigger arrows
+
                 if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                    # Trigger arrow periodically while key is held
                     if pygame.time.get_ticks() % 20 == 0:  # Every 20ms
                         self.overlay.trigger_arrow("left")
 
-                        if pygame.time.get_ticks() % 1 == 0:
-                            ticker = True
                 if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                    if pygame.time.get_ticks() % 20 == 0:
                         self.overlay.trigger_arrow("right")
                 
                 self.player.update(keys)
@@ -640,22 +680,39 @@ class Game:
                     
                 if self.player.health <= 0:
                     self.state = GameState.GAME_OVER
+                    self.game_over_phase = 1
+                    self.game_over_timer = pygame.time.get_ticks()
+                    self.player_name = ""
                     
             elif self.state == GameState.GAME_OVER:
-                font = pygame.font.SysFont(None, 72)
-                text = font.render("GAME OVER", True, (255, 0, 0))
-                self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
-                pygame.display.flip()
-                time.sleep(2)
-                running = False
-                
+                if self.game_over_phase == 1:
+                    if current_time - self.game_over_timer < 2000:
+                        font = pygame.font.SysFont(None, 72)
+                        text = font.render("GAME OVER", True, (255, 0, 0))
+                        self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+                    else:
+                        self.game_over_phase = 2
+
+                elif self.game_over_phase == 2:
+                    self.screen.fill((75, 156, 211))
+                    font = pygame.font.SysFont(None, 48)
+                    title = font.render("Game Over", True, (210, 10, 46))
+                    self.screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
+
+                    prompt = font.render("Enter your name:", True, (255, 255, 255))
+                    self.screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, 200))
+
+                    name_surface = font.render(self.player_name + "|", True, (0, 255, 0))
+                    pygame.draw.rect(self.screen, (255, 255, 255), (WIDTH // 2 - 150, 260, 300, 50), 2)
+                    self.screen.blit(name_surface, (WIDTH // 2 - 140, 265))
+
             elif self.state == GameState.PAUSED:
                 font = pygame.font.SysFont(None, 72)
                 text = font.render("PAUSED", True, WHITE)
                 self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+                
             pygame.display.flip()
             self.clock.tick(FPS)
-            print(self.gestures)
             
         # Cleanup
         self.overlay.close()
