@@ -1,0 +1,13 @@
+
+# Basisverzeichnis (relativ zu dieser YAML-Datei)
+path: ./training 
+
+# Pfade zu den Bildern (relativ zu 'path')
+train: images/train
+val: images/val
+
+# Anzahl der Klassen
+nc: 7
+
+# Klassenbezeichnungen
+names: ['0', '1', '2', '3', '4', '5','6']

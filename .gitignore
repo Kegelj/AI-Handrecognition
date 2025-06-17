@@ -13,3 +13,10 @@ training/scaled_daten/
 training/scr/__pycache__/
 training/scr/__pycache__/augments.cpython-311.pyc
 training/scr/__pycache__/losses.cpython-311.pyc
+runs/
+training/alternativ_daten/
+training/images/
+training/labels/
+training/schrot
+yolo11n.pt
+training/csv.extrahieren.py

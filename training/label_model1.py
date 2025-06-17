@@ -2,14 +2,13 @@ import cv2
 import mediapipe as mp
 from pathlib import Path
 
-#  Parameter
+# Parameter
 PADDING_RATIO = 0.3
 WIDEN_RATIO = 0.3
-BASE_DIR = Path("training/scaled_daten")
+BASE_DIR = Path("training/alternativ_daten")
 
-#  Ordner-zu-Klassen-ID Mapping
+# Ordner-zu-Klassen-ID Mapping (ohne Faust und nop)
 FOLDER_TO_CLASS_ID = {
-    "nop": 0,
     "index": 1,
     "index_pinky": 2,
     "pinky": 3,
@@ -19,12 +18,12 @@ FOLDER_TO_CLASS_ID = {
     "backhand": 6
 }
 
-#  MediaPipe Hands initialisieren
+# MediaPipe Hands initialisieren
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=True)
 
 def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
-                         padding_ratio=0.15, widen_ratio=0.2):
+                           padding_ratio=0.15, widen_ratio=0.2):
     box_w = x_max - x_min
     box_h = y_max - y_min
     pad_h = box_h * padding_ratio / 2
@@ -38,23 +37,23 @@ def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
 for image_path in BASE_DIR.rglob("*.jpg"):
     folder_name = image_path.parent.name
 
-    #  "_i", "_p", "_m" Suffixe entfernen
+    # "_i", "_p", "_m" Suffixe entfernen
     for suffix in ["_i", "_p", "_m"]:
         if folder_name.endswith(suffix):
             folder_name = folder_name[:-len(suffix)]
-            break  # Ein Suffix reicht, dann abbrechen
+            break
 
-    class_id = FOLDER_TO_CLASS_ID.get(folder_name, 0)
-
-    #  Wenn "nop", Dummy-Label schreiben
-    if folder_name == "nop":
-        label_path = image_path.with_suffix(".txt")
-        with open(label_path, "w") as f:
-            f.write("0 0 0 0 0\n")
-        print(f" Dummy-Label für 'nop' geschrieben: {label_path}")
+    # NOP und FAUST überspringen
+    if folder_name.lower() in ["nop", "faust"]:
+        print(f" ⏭ Ignoriere Ordner: {folder_name} ({image_path.name})")
         continue
 
-    #  Sonst: MediaPipe-Detection
+    class_id = FOLDER_TO_CLASS_ID.get(folder_name)
+    if class_id is None:
+        print(f" ⚠️ Unbekannter Ordnername: {folder_name}")
+        continue
+
+    # Bild laden
     img = cv2.imread(str(image_path))
     if img is None:
         print(f" Fehler beim Laden: {image_path}")
@@ -86,4 +85,4 @@ for image_path in BASE_DIR.rglob("*.jpg"):
             with open(label_path, "w") as f:
                 f.write(f"{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
 
-print(" Fertig! Alle Labels wurden angepasst an die neue Struktur.")
+print("  Fertig! Alle gültigen Labels wurden geschrieben.")
