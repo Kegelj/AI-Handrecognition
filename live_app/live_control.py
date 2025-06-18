@@ -75,37 +75,37 @@ def is_index_finger_up(hand_landmarks):
 def is_pinky_finger_up(hand_landmarks):
     return hand_landmarks.landmark[20].y < hand_landmarks.landmark[18].y
     
-
+# mp_hands, hands und mp_Draw brauchen wir dann nicht mehr
 def live_tracking():
-    mp_hands = mp.solutions.hands
-    hands = mp_hands.Hands()
-    mp_draw = mp.solutions.drawing_utils
     keyboard = Controller()
-
+    
+    #Hier holen wir uns die Kamera... 0 spricht das erste Lokale Kamera Element an, meistens ist es die richtige... Ansonsten 1,2... probieren
     cap = cv2.VideoCapture(0)
     try:
         while True:
             success, image = cap.read()
             if not success:
                 break
-
+            
+            # Das ist unser RGB Frame den du mit dem Model analysierst
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = hands.process(image_rgb)
 
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    if is_index_finger_up(hand_landmarks):
-                        keyboard.press('w')
-                    else:
-                        keyboard.release('w')
-                    if is_thumb_up(hand_landmarks):
-                        keyboard.press('d')
-                    else:
-                        keyboard.release('d')
-                    if is_pinky_finger_up(hand_landmarks):
-                        keyboard.press('a')
-                    else:
-                        keyboard.release('a')  
+        
+        # -> Hier solltest du das Model einfügen und dann die Outputs mit den Tasten unten Verbinden. Ich hab die Variable 'model' nur als Platzhalter erstellt
+
+            model = True
+            if model:
+                keyboard.press('w')
+            else:
+                keyboard.release('w')
+            if model:
+                keyboard.press('d')
+            else:
+                keyboard.release('d')
+            if model:
+                keyboard.press('a')
+            else:
+                keyboard.release('a')  
 
             cv2.imshow("Handerkennung", image)
   

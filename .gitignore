@@ -25,3 +25,9 @@ training/Todelete/
 project_assets
 game/assets/ivan.png
 
+.env
+cloud_data\connectors\__pycache__
+__init__.py
+
+
+
