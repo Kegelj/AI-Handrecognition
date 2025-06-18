@@ -4,9 +4,9 @@ import random
 import time
 import math
 import os
-from PyQt5.QtWidgets import QApplication, QLabel, QWidget
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
-from PyQt5.QtGui import QPixmap
+import pandas
+import string
+from pathlib import Path
 from enum import Enum
 
 # Constants
@@ -14,14 +14,72 @@ WIDTH, HEIGHT = 1000, 800
 GREEN = (0, 255, 0)
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+GRAY = (128, 128, 128)
 FPS = 70
-goats_killed = 0
+ARROW_SIZE = 60
+ARROW_GLOW_TIME = 10
+AUTO_RELOAD_THRESHOLD = 5  # ammo count to trigger auto-reload
+
+base_path = os.path.join(os.path.dirname(__file__), "assets\\")
 
 class GameState(Enum):
     MENU = 0
     PLAYING = 1
     GAME_OVER = 2
     PAUSED = 3
+
+class EnemyType(Enum):
+    GOAT = 1
+    SQUIRREL = 2
+
+class ArrowIndicator:
+    def __init__(self, x, y, direction):
+        self.x = x
+        self.y = y
+        self.direction = direction  # 'left', 'right', 'up', 'space'
+        self.glow_timer = 0
+        self.is_glowing = False
+        
+    def trigger(self):
+        self.glow_timer = ARROW_GLOW_TIME
+        self.is_glowing = True
+        
+    def update(self):
+        if self.glow_timer > 0:
+            self.glow_timer -= 1
+        else:
+            self.is_glowing = False
+            
+    def draw(self, screen):
+        color = GREEN if self.is_glowing else WHITE
+        border_color = (0, 200, 0) if self.is_glowing else GRAY
+        
+        # Draw border
+        pygame.draw.rect(screen, border_color, 
+                        (self.x - 5, self.y - 5, ARROW_SIZE + 10, ARROW_SIZE + 10), 3)
+        
+        # Draw arrow based on direction
+        center_x = self.x + ARROW_SIZE // 2
+        center_y = self.y + ARROW_SIZE // 2
+        
+        if self.direction == 'left':
+            points = [(self.x + 10, center_y), 
+                     (self.x + ARROW_SIZE - 10, self.y + 10),
+                     (self.x + ARROW_SIZE - 10, self.y + ARROW_SIZE - 10)]
+        elif self.direction == 'right':
+            points = [(self.x + ARROW_SIZE - 10, center_y),
+                     (self.x + 10, self.y + 10),
+                     (self.x + 10, self.y + ARROW_SIZE - 10)]
+        elif self.direction == 'up':
+            points = [(center_x, self.y + 10),
+                     (self.x + 10, self.y + ARROW_SIZE - 10),
+                     (self.x + ARROW_SIZE - 10, self.y + ARROW_SIZE - 10)]
+        elif self.direction == 'space':
+            # Draw a circle for space (shoot)
+            pygame.draw.circle(screen, color, (center_x, center_y), 20, 4)
+            return
+            
+        pygame.draw.polygon(screen, color, points)
 
 class Stopwatch():
     def __init__(self):
@@ -35,89 +93,32 @@ class Stopwatch():
         self.current_time = time.time()
         return round((self.current_time - self.past_time),2)
 
-
-class SignalEmitter(QObject):
-    trigger_flash = pyqtSignal(str)  # 'left', 'up', 'right'
-
-class ArrowOverlay(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setGeometry(600, 100, 400, 150)
-
-        # Define coordinates for the arrows
-        left_coords = (10, 50)
-        up_coords = (150, 10)
-        right_coords = (290, 50)
-
-        global base_path 
-        base_path = os.path.join(os.path.dirname(__file__), "assets\\")
-        print(base_path)
-        self.icons = {
-            "left": self.create_icon(os.path.join(base_path, "left.png"), left_coords[0], left_coords[1]),
-            "up": self.create_icon(os.path.join(base_path, "up.png"), up_coords[0], up_coords[1]),
-            "right": self.create_icon(os.path.join(base_path, "right.png"), right_coords[0], right_coords[1])
-        }
-
-        self.signals = SignalEmitter()
-        self.signals.trigger_flash.connect(self.flash_icon)
-
-    def create_icon(self, path, x, y):
-        label = QLabel(self)
-        pixmap = QPixmap(path)
-        if pixmap.isNull():
-            print(f"[ERROR] Couldn't load picture: {path}")
-            # Create a colored rectangle as fallback
-            pixmap = QPixmap(80, 80)
-            pixmap.fill(Qt.red)
-        pixmap = pixmap.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        label.setPixmap(pixmap)
-        label.move(x, y)
-        label.setVisible(False)
-        return label
-
-    def flash_icon(self, direction):
-        label = self.icons.get(direction)
-        if label:
-            label.setVisible(True)
-            QTimer.singleShot(300, lambda: label.setVisible(False))
-
-    def trigger_arrow(self, direction):
-        """Method to trigger arrow flash from game"""
-        self.signals.trigger_flash.emit(direction)
-
-class Goat:
-    def __init__(self):
-        self.goat_pos = [WIDTH, 717]
-        self.goat_health = 50
-        self.goat_speed = 5
-        self.attack = 25
-        self.goat_radius = 40
+class Enemy:
+    def __init__(self, enemy_type, spawn_x=None):
+        self.type = enemy_type
+        self.pos = [spawn_x or WIDTH, 717]
+        self.radius = 40
+        self.speed = random.randint(3, 7)  # Random enemy speed
+        
+        if enemy_type == EnemyType.GOAT:
+            self.health = 150
+            self.max_health = 150
+            self.attack = 25
+            self.image_name = "goat.png"
+        else:  # SQUIRREL
+            self.health = 75
+            self.max_health = 75
+            self.attack = 35
+            self.image_name = "squirrel.png"
+            
         self.load_img()
 
     def load_img(self):
         try:
-            self.image = pygame.image.load(base_path + 'goat.png').convert_alpha()
-            self.image = pygame.transform.scale(self.image, (self.goat_radius * 2, self.goat_radius * 2))
+            self.image = pygame.image.load(base_path + self.image_name).convert_alpha()
+            self.image = pygame.transform.scale(self.image, (self.radius * 2, self.radius * 2))
         except:
-            print("Couldn't load goat image, using circle instead")
-            self.image = None
-
-class Squirrel:
-    def __init__(self):
-        self.squir_pos = [WIDTH, 717]
-        self.squir_health = 75
-        self.squir_speed = 5
-        self.squir_radius = 40
-        self.load_img()
-
-    def load_img(self):
-        try:
-            self.image = pygame.image.load(base_path + 'ivan.png').convert_alpha()
-            self.image = pygame.transform.scale(self.image, (self.squir_radius * 2, self.squir_radius * 2))
-        except:
-            print("Couldn't load squirrel image, using circle instead")
+            print(f"Couldn't load {self.image_name}, using circle instead")
             self.image = None
 
 class Player:
@@ -131,9 +132,11 @@ class Player:
         self.facing_right = True
         self.health = 50
         self.max_health = 50
-        self.ammo = 50
-        self.max_ammo = 50
+        self.ammo = 10
+        self.max_ammo = 10
         self.shoot_cooldown = 0
+        self.reload_cooldown = 0
+        self.auto_reload = True
         self.load_images()
 
     def load_images(self):
@@ -147,10 +150,10 @@ class Player:
             
     def update(self, keys):
         # Horizontal movement
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.pos[0] -= self.speed
             self.facing_right = False
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.pos[0] += self.speed
             self.facing_right = True
             
@@ -158,12 +161,19 @@ class Player:
         self.gravity += 0.8
         self.pos[1] += self.gravity
         
-        # Keep player in bounds
+        # Keep player in bounds (horizontal and vertical)
+        self.pos[0] = max(self.radius, min(WIDTH - self.radius, self.pos[0]))
         self.pos[1] = max(self.radius, min(HEIGHT - 85, self.pos[1]))
         
-        # Update shoot cooldown
+        # Update cooldowns
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
+        if self.reload_cooldown > 0:
+            self.reload_cooldown -= 1
+            
+        # Auto-reload when ammo is low
+        if self.auto_reload and self.ammo <= AUTO_RELOAD_THRESHOLD and self.reload_cooldown == 0:
+            self.reload()
             
     def jump(self):
         if self.pos[1] >= HEIGHT - 85 - self.radius:
@@ -186,7 +196,9 @@ class Player:
         return None
         
     def reload(self):
-        self.ammo = self.max_ammo
+        if self.reload_cooldown == 0:
+            self.ammo = self.max_ammo
+            self.reload_cooldown = 30  # Reload cooldown
         
     def draw(self, screen):
         if self.image:
@@ -197,14 +209,11 @@ class Player:
 
 class Game:
     def __init__(self):
-        # Initialize PyQt5 application first
-        self.qt_app = QApplication.instance()
-        if self.qt_app is None:
-            self.qt_app = QApplication(sys.argv)
-
         self.stopwatch = Stopwatch()
         self.stopwatch.start()
 
+        self.player_name = ""
+        self.name_imput_active = False
         self.pressed_keys = {}
         self.gestures = []
         self.timestamps = []
@@ -215,25 +224,33 @@ class Game:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("AI Masters Game")
         self.clock = pygame.time.Clock()
-
-        # Initialize overlay
-        self.overlay = ArrowOverlay()
-        self.overlay.show()
         
         # Game state
         self.state = GameState.MENU
         self.player = Player()
         self.bullets = []
-        self.goats = []
-        self.last_goat_spawn = 0
-        self.goat_spawn_interval = 2000
-        self.squir = []
-        self.last_squir_spawn = 0
-        self.squir_spawn_interval = 2000
-        self.goats_killed = 0
+        self.enemies = []
+        self.last_enemy_spawn = 0
+        self.enemy_spawn_interval = 2000
+        
+        # Enemy tracking
+        self.enemies_killed = {
+            EnemyType.GOAT: 0,
+            EnemyType.SQUIRREL: 0
+        }
+        self.total_kills = 0
+        
         self.time_Interval = 500 #ms
         self.fullscreen = False
         self.user_screen = pygame.display.Info()
+        
+        # Arrow indicators for gesture control
+        self.arrows = {
+            'left': ArrowIndicator(20, HEIGHT // 2, 'left'),
+            'right': ArrowIndicator(WIDTH - 80, HEIGHT // 2, 'right'),
+            'up': ArrowIndicator((WIDTH // 2) - 30, (HEIGHT // 2) - 300, 'up'),
+            'space': ArrowIndicator((WIDTH // 2) - 30, HEIGHT // 2, 'space')
+        }
         
         # Load assets
         self.load_assets()
@@ -243,109 +260,69 @@ class Game:
         self.fullscreen = not self.fullscreen
         if self.fullscreen:
             self.screen = pygame.display.set_mode((self.user_screen.current_w, self.user_screen.current_h), pygame.FULLSCREEN)
-            self.overlay.setGeometry(self.user_screen.current_w - 410, 100, 400, 150)
         else:
             self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-            self.overlay.setGeometry(600, 100, 400, 150)
 
-    def spawn_goat(self):
-        """Create a new goat at the right edge of the screen"""
-        goat = Goat()
-        goat.goat_pos = [WIDTH + goat.goat_radius, 717]
-        self.goats.append(goat)
-        self.last_goat_spawn = pygame.time.get_ticks()
+    def spawn_enemy(self):
+        """Spawn random enemy type"""
+        # After 10 total kills, spawn more squirrels
+        if self.total_kills > 10:
+            enemy_type = random.choice([EnemyType.GOAT, EnemyType.SQUIRREL, EnemyType.SQUIRREL])
+        elif self.total_kills > 5:
+            enemy_type = random.choice([EnemyType.GOAT, EnemyType.SQUIRREL])
+        else:
+            enemy_type = EnemyType.GOAT
+            
+        enemy = Enemy(enemy_type, WIDTH + 40)
+        self.enemies.append(enemy)
+        self.last_enemy_spawn = pygame.time.get_ticks()
 
-    def update_goats(self):
+    def update_enemies(self):
         current_time = pygame.time.get_ticks()
         
-        if self.goats_killed < 5 and current_time - self.last_goat_spawn > self.goat_spawn_interval:
-            self.spawn_goat()
+        # Spawn new enemies
+        if current_time - self.last_enemy_spawn > self.enemy_spawn_interval:
+            self.spawn_enemy()
         
-        for goat in self.goats[:]:
-            if goat.goat_health <= 0:
-                self.goats.remove(goat)
-                self.goats_killed += 1
+        # Update existing enemies
+        for enemy in self.enemies[:]:
+            if enemy.health <= 0:
+                self.enemies.remove(enemy)
+                self.enemies_killed[enemy.type] += 1
+                self.total_kills += 1
                 continue
                 
-            goat.goat_pos[0] -= goat.goat_speed
+            enemy.pos[0] -= enemy.speed
             
-            if goat.goat_pos[0] < -goat.goat_radius:
-                self.goats.remove(goat)
+            if enemy.pos[0] < -enemy.radius:
+                self.enemies.remove(enemy)
     
-    def draw_goats(self):
-        for goat in self.goats:
-            if goat.goat_health <= 0:
+    def draw_enemies(self):
+        for enemy in self.enemies:
+            if enemy.health <= 0:
                 continue
                 
-            if goat.image:
-                img = goat.image
-                self.screen.blit(img, (goat.goat_pos[0] - goat.goat_radius,
-                                      goat.goat_pos[1] - goat.goat_radius))
+            if enemy.image:
+                self.screen.blit(enemy.image, (enemy.pos[0] - enemy.radius,
+                                             enemy.pos[1] - enemy.radius))
             else:
-                pygame.draw.circle(self.screen, (255, 255, 255), 
-                                (int(goat.goat_pos[0]), int(goat.goat_pos[1])), 
-                                goat.goat_radius)
-
-    def spawn_squir(self):
-        """Create a new squirrel at the right edge of the screen"""
-        squir = Squirrel()
-        squir.squir_pos = [WIDTH + squir.squir_radius, 717]
-        self.squir.append(squir)
-        self.last_squir_spawn = pygame.time.get_ticks()
-
-    def update_squirs(self):
-        current_time = pygame.time.get_ticks()
-        
-        if current_time - self.last_squir_spawn > self.squir_spawn_interval:
-            self.spawn_squir()
-        
-        for squir in self.squir[:]:
-            if squir.squir_health <= 0:
-                self.squir.remove(squir)
-                continue
+                color = (255, 255, 255) if enemy.type == EnemyType.GOAT else (150, 75, 0)
+                pygame.draw.circle(self.screen, color, 
+                                (int(enemy.pos[0]), int(enemy.pos[1])), 
+                                enemy.radius)
                 
-            squir.squir_pos[0] -= squir.squir_speed
-            
-            if squir.squir_pos[0] < -squir.squir_radius:
-                self.squir.remove(squir)
-
-    def draw_squirs(self):
-        for squir in self.squir:
-            if squir.squir_health <= 0:
-                continue
-                
-            if squir.image:
-                img = squir.image
-                self.screen.blit(img, (squir.squir_pos[0] - squir.squir_radius,
-                                    squir.squir_pos[1] - squir.squir_radius))
-            else:
-                pygame.draw.circle(self.screen, (255, 255, 255), 
-                                (int(squir.squir_pos[0]), int(squir.squir_pos[1])), 
-                                squir.squir_radius)
-                
-    def check_collisions_squir(self):
-        for squir in self.squir:
-            if squir.squir_health <= 0:
-                continue
-                
-            dx = self.player.pos[0] - squir.squir_pos[0]
-            dy = self.player.pos[1] - squir.squir_pos[1]
-            distance = math.sqrt(dx*dx + dy*dy)
-            
-            if distance < self.player.radius + squir.squir_radius:
-                self.player.health -= 2
-
     def check_collisions(self):
-        for goat in self.goats:
-            if goat.goat_health <= 0:
+        for enemy in self.enemies:
+            if enemy.health <= 0:
                 continue
                 
-            dx = self.player.pos[0] - goat.goat_pos[0]
-            dy = self.player.pos[1] - goat.goat_pos[1]
+            dx = self.player.pos[0] - enemy.pos[0]
+            dy = self.player.pos[1] - enemy.pos[1]
             distance = math.sqrt(dx*dx + dy*dy)
             
-            if distance < self.player.radius + goat.goat_radius:
-                self.player.health -= 1
+            if distance < self.player.radius + enemy.radius:
+                damage = 2 if enemy.type == EnemyType.SQUIRREL else 1
+                self.player.health -= damage
 
     def load_assets(self):
         try:
@@ -382,7 +359,27 @@ class Game:
         except:
             print("Couldn't load audio files")
             self.gun_toggle_sound = None
-            
+
+    def draw_game_over_screen(self):
+        font = pygame.font.SysFont(None, 72)
+        text = font.render("GAME OVER", True, (255, 0, 0))
+        self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+        pygame.display.flip()
+
+        time.sleep(2)
+        
+        self.screen.fill((0, 0, 0))
+        font = pygame.font.SysFont(None, 48)
+        title = font.render("Game Over", True, (255, 0, 0))
+        self.screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
+
+        prompt = font.render("Enter your name:", True, (255, 255, 255))
+        self.screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, 200))
+
+        name_surface = font.render(self.player_name, True, (0, 255, 0))
+        pygame.draw.rect(self.screen, (255, 255, 255), (WIDTH // 2 - 150, 260, 300, 50), 2)
+        self.screen.blit(name_surface, (WIDTH // 2 - 140, 265))
+
     def draw_menu(self):
         self.screen.fill((20, 20, 20))
         title_font = pygame.font.SysFont("Comic Sans MS", 80)
@@ -396,9 +393,8 @@ class Game:
             "Left Arrow / A - Move left",
             "Right Arrow / D - Move right", 
             "Up Arrow / W - Jump",
-            "X - Take gun out",
-            "SPACE - Shoot (uses ammo)",
-            "Z - Reload",
+            "SPACE - Shoot (auto-reload enabled)",
+            "Z - Manual reload",
             "P - Pause",
             "F - Fullscreen",
             "",
@@ -431,23 +427,63 @@ class Game:
                 
     def draw_hud(self):
         font = pygame.font.SysFont(None, 28)
+        small_font = pygame.font.SysFont(None, 24)
         
+        # Ammo display
         for i in range(self.player.ammo):
             pygame.draw.rect(self.screen, (255, 255, 0), (20 + i * 15, 20, 10, 20))
         ammo_label = font.render("Ammo", True, WHITE)
         self.screen.blit(ammo_label, (20, 0))
+        
+        # Gun status
         gun_status = "READY" if self.player.gun_visible else "HIDDEN"
         status_color = (0, 255, 0) if self.player.gun_visible else (255, 0, 0)
         status_text = font.render(f"Gun: {gun_status}", True, status_color)
         self.screen.blit(status_text, (20, 120))
+        
+        # Auto-reload indicator
+        if self.player.auto_reload:
+            auto_text = small_font.render("AUTO-RELOAD ON", True, (0, 255, 255))
+            self.screen.blit(auto_text, (20, 145))
             
+        # Health bar
         health_width = (self.player.health / self.player.max_health) * 200
         pygame.draw.rect(self.screen, (255, 0, 0), (20, 50, health_width, 20))
         health_label = font.render("Health", True, WHITE)
         self.screen.blit(health_label, (20, 75))
         
-        kills_text = font.render(f"Goats Killed: {self.goats_killed}", True, WHITE)
-        self.screen.blit(kills_text, (WIDTH - 200, 20))
+        # Enhanced kill tracking
+        goat_kills = self.enemies_killed[EnemyType.GOAT]
+        squirrel_kills = self.enemies_killed[EnemyType.SQUIRREL]
+        
+        kills_y = 20
+        goat_text = font.render(f"Goats: {goat_kills}", True, WHITE)
+        self.screen.blit(goat_text, (WIDTH - 150, kills_y))
+        
+        squirrel_text = font.render(f"Squirrels: {squirrel_kills}", True, (150, 75, 0))
+        self.screen.blit(squirrel_text, (WIDTH - 150, kills_y + 30))
+        
+        total_text = font.render(f"Total: {self.total_kills}", True, (255, 215, 0))
+        self.screen.blit(total_text, (WIDTH - 150, kills_y + 60))
+        
+    def draw_arrows(self):
+        """Draw the arrow indicators for gesture control"""
+        for arrow in self.arrows.values():
+            arrow.update()
+            arrow.draw(self.screen)
+            
+        # Draw labels
+        font = pygame.font.SysFont(None, 20)
+        labels = [
+            ("LEFT", self.arrows['left'].x + 15, self.arrows['left'].y + 65),
+            ("RIGHT", self.arrows['right'].x + 10, self.arrows['right'].y + 65),
+            ("JUMP", self.arrows['up'].x + 15, self.arrows['up'].y + 65),
+            ("SHOOT", self.arrows['space'].x + 10, self.arrows['space'].y + 65)
+        ]
+        
+        for text, x, y in labels:
+            label = font.render(text, True, WHITE)
+            self.screen.blit(label, (x, y))
         
     def update_bullets(self):
         for bullet in self.bullets[:]:
@@ -461,37 +497,22 @@ class Game:
                 self.bullets.remove(bullet)
                 continue
             
-            for squir in self.squir[:]:
-                if squir.squir_health <= 0:
+            # Check bullet collisions with enemies
+            for enemy in self.enemies[:]:
+                if enemy.health <= 0:
                     continue
                     
-                dx = bullet['x'] - squir.squir_pos[0]
-                dy = bullet['y'] - squir.squir_pos[1]
+                dx = bullet['x'] - enemy.pos[0]
+                dy = bullet['y'] - enemy.pos[1]
                 dist = math.sqrt(dx*dx + dy*dy)
-                if dist < squir.squir_radius:
-                    squir.squir_health -= 25
-                    squir.squir_pos[0] += 155
+                if dist < enemy.radius:
+                    enemy.health -= 25
                     if bullet in self.bullets:
                         self.bullets.remove(bullet)
-                    if squir.squir_health <= 0:
-                        self.squir.remove(squir)
-                    break
-                    
-            for goat in self.goats[:]:
-                if goat.goat_health <= 0:
-                    continue
-                    
-                dx = bullet['x'] - goat.goat_pos[0]
-                dy = bullet['y'] - goat.goat_pos[1]
-                dist = math.sqrt(dx*dx + dy*dy)
-                if dist < goat.goat_radius:
-                    goat.goat_health -= 25
-                    goat.goat_pos[0] += 155
-                    if bullet in self.bullets:
-                        self.bullets.remove(bullet)
-                    if goat.goat_health <= 0:
-                        self.goats.remove(goat)
-                        self.goats_killed += 1
+                    if enemy.health <= 0:
+                        self.enemies.remove(enemy)
+                        self.enemies_killed[enemy.type] += 1
+                        self.total_kills += 1
                     break
 
     def draw_bullets(self):
@@ -501,58 +522,50 @@ class Game:
                 self.screen.blit(img, (bullet['x'], bullet['y']))
             else:
                 pygame.draw.rect(self.screen, (255, 0, 0), bullet['rect'])
-
-    def handle_key_press(self, key):
-        """Handle key press and trigger overlay arrows"""
-        if key == pygame.K_LEFT:
-            self.overlay.trigger_arrow("left")
-        elif key == pygame.K_RIGHT:
-            self.overlay.trigger_arrow("right")
-        elif key == pygame.K_UP:
-            self.overlay.trigger_arrow("up")
-        # Also handle WASD keys
-        elif key == pygame.K_a:
-            self.overlay.trigger_arrow("left")
-        elif key == pygame.K_d:
-            self.overlay.trigger_arrow("right")
-        elif key == pygame.K_w:
-            self.overlay.trigger_arrow("up")
                 
-    # One time press checker, to avoid multiple gesture outputs
     def handle_otp(self, key):
         if not self.pressed_keys.get(key, False):
             self.pressed_keys[key] = True
 
-        if key in (pygame.K_LEFT, pygame.K_a):
-            self.gestures.append(1)
-            self.timestamps.append(self.stopwatch.get_timestamp())
-        elif key in (pygame.K_RIGHT, pygame.K_d):
-            self.gestures.append(2)
-            self.timestamps.append(self.stopwatch.get_timestamp())
-        elif key in (pygame.K_UP, pygame.K_w):
-            self.gestures.append(3)
-            self.timestamps.append(self.stopwatch.get_timestamp())
-        elif key == pygame.K_SPACE:
-            self.gestures.append(4)
-            self.timestamps.append(self.stopwatch.get_timestamp())
+            # Trigger arrow indicators and log gestures
+            if key in (pygame.K_LEFT, pygame.K_a):
+                self.arrows['left'].trigger()
+                self.gestures.append(1)
+                self.timestamps.append(self.stopwatch.get_timestamp())
+            elif key in (pygame.K_RIGHT, pygame.K_d):
+                self.arrows['right'].trigger()
+                self.gestures.append(2)
+                self.timestamps.append(self.stopwatch.get_timestamp())
+            elif key in (pygame.K_UP, pygame.K_w):
+                self.arrows['up'].trigger()
+                self.gestures.append(3)
+                self.timestamps.append(self.stopwatch.get_timestamp())
+            elif key == pygame.K_SPACE:
+                self.arrows['space'].trigger()
+                self.gestures.append(4)
+                self.timestamps.append(self.stopwatch.get_timestamp())
 
     def extract_infos(self):
-        return self.gestures, self.timestamps
-   
+        game_id = "".join(random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
+        User = self.player_name
+        df = pandas.DataFrame({"game_id": game_id,
+                               "user_name": User,
+                               "user_input": self.gestures,
+                               "timestamp": self.timestamps,
+                               "goat_kills": self.enemies_killed[EnemyType.GOAT],
+                               "squirrel_kills": self.enemies_killed[EnemyType.SQUIRREL]})
+        df.to_csv(f'game/logs/{User}_{game_id}.csv')
+
     def run(self):
         running = True
-        ticker = True
-        first_goat_spawned = False
-        
+        first_enemy_spawned = False
+
         while running:
-            # Process Qt events
-            self.qt_app.processEvents()
             current_time = pygame.time.get_ticks()
-            
-            
-            if self.state == GameState.PLAYING and not first_goat_spawned and current_time > 1000:
-                self.spawn_goat()
-                first_goat_spawned = True
+        
+            if self.state == GameState.PLAYING and not first_enemy_spawned and current_time > 1000:
+                self.spawn_enemy()
+                first_enemy_spawned = True
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -563,13 +576,11 @@ class Game:
                         button_rect = self.draw_menu()
                         if button_rect.collidepoint(event.pos):
                             self.state = GameState.PLAYING
-                            first_goat_spawned = False
-                            self.last_goat_spawn = pygame.time.get_ticks()
+                            first_enemy_spawned = False
+                            self.last_enemy_spawn = pygame.time.get_ticks()
                             
                 elif self.state == GameState.PLAYING:
                     if event.type == pygame.KEYDOWN:
-                        # Trigger arrow overlay for movement keys
-                        self.handle_key_press(event.key)
                         self.handle_otp(event.key)
                         
                         if event.key == pygame.K_x:  
@@ -589,37 +600,43 @@ class Game:
                         if event.key == pygame.K_f:
                             self.toggle_fullscreen()
                             
+                    if event.type == pygame.KEYUP:
+                        self.pressed_keys[event.key] = False
+                        
                 elif self.state == GameState.PAUSED:
                     if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                         self.state = GameState.PLAYING
                         
+                elif self.state == GameState.GAME_OVER and hasattr(self, 'game_over_phase') and self.game_over_phase == 2:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_BACKSPACE:
+                            self.player_name = self.player_name[:-1]
+                        elif event.key == pygame.K_RETURN:
+                            self.extract_infos()
+                            self.state = GameState.MENU
+                            # Reset game state
+                            self.enemies_killed = {EnemyType.GOAT: 0, EnemyType.SQUIRREL: 0}
+                            self.total_kills = 0
+                            self.player = Player()
+                            self.bullets = []
+                            self.enemies = []
+                        else:
+                            if len(self.player_name) < 10 and event.unicode.isprintable():
+                                self.player_name += event.unicode
+
             if self.state == GameState.MENU:
                 self.draw_menu()
                 
             elif self.state == GameState.PLAYING:
                 keys = pygame.key.get_pressed()
                 
-                # Handle continuous key presses and trigger arrows
-                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                    # Trigger arrow periodically while key is held
-                    if pygame.time.get_ticks() % 20 == 0:  # Every 20ms
-                        self.overlay.trigger_arrow("left")
-
-                        if pygame.time.get_ticks() % 1 == 0:
-                            ticker = True
-                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                        self.overlay.trigger_arrow("right")
-                
                 self.player.update(keys)
                 self.update_bullets()
-                self.update_goats()
+                self.update_enemies()
                 self.check_collisions()
                 
-                if self.goats_killed >= 5:
-                    self.update_squirs()
-                    self.check_collisions_squir()
-                
                 # Draw everything
+                self.screen.fill(BLACK)
                 if self.sky:
                     self.screen.blit(self.sky, (0, 0))
                 else:
@@ -629,37 +646,53 @@ class Game:
                 self.player.draw(self.screen)
                 self.draw_gun()
                 self.draw_hud()
-                if self.goats_killed < 5:
-                    self.draw_goats()
-                
-                if self.goats_killed >= 5:
-                    self.draw_squirs()
+                self.draw_enemies()
+                self.draw_arrows()  # Draw gesture indicators
                 
                 if self.ground:
                     self.screen.blit(self.ground, (0, 755))
                     
                 if self.player.health <= 0:
                     self.state = GameState.GAME_OVER
+                    self.game_over_phase = 1
+                    self.game_over_timer = pygame.time.get_ticks()
+                    self.player_name = ""
                     
             elif self.state == GameState.GAME_OVER:
-                font = pygame.font.SysFont(None, 72)
-                text = font.render("GAME OVER", True, (255, 0, 0))
-                self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
-                pygame.display.flip()
-                time.sleep(2)
-                running = False
-                
+                if not hasattr(self, 'game_over_phase'):
+                    self.game_over_phase = 1
+                    self.game_over_timer = pygame.time.get_ticks()
+                    
+                if self.game_over_phase == 1:
+                    if current_time - self.game_over_timer < 2000:
+                        font = pygame.font.SysFont(None, 72)
+                        text = font.render("GAME OVER", True, (255, 0, 0))
+                        self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+                    else:
+                        self.game_over_phase = 2
+
+                elif self.game_over_phase == 2:
+                    self.screen.fill((75, 156, 211))
+                    font = pygame.font.SysFont(None, 48)
+                    title = font.render("Game Over", True, (210, 10, 46))
+                    self.screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
+
+                    prompt = font.render("Enter your name:", True, (255, 255, 255))
+                    self.screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, 200))
+
+                    name_surface = font.render(self.player_name + "|", True, (0, 255, 0))
+                    pygame.draw.rect(self.screen, (255, 255, 255), (WIDTH // 2 - 150, 260, 300, 50), 2)
+                    self.screen.blit(name_surface, (WIDTH // 2 - 140, 265))
+
             elif self.state == GameState.PAUSED:
                 font = pygame.font.SysFont(None, 72)
                 text = font.render("PAUSED", True, WHITE)
                 self.screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+                
             pygame.display.flip()
             self.clock.tick(FPS)
-            print(self.gestures)
             
         # Cleanup
-        self.overlay.close()
-        self.qt_app.quit()
         pygame.quit()
         sys.exit()
 

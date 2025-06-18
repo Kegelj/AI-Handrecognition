@@ -26,3 +26,9 @@ project_assets
 game/assets/ivan.png
 training/alternativ_daten_labeltest/
 
+.env
+cloud_data\connectors\__pycache__
+__init__.py
+
+
+
