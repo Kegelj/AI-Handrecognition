@@ -3,8 +3,8 @@ import mediapipe as mp
 from pathlib import Path
 
 # Parameter
-PADDING_RATIO = 0.4
-WIDEN_RATIO = 0.4
+PADDING_RATIO = 0.5
+WIDEN_RATIO = 0.5
 BASE_DIR = Path("training/alternativ_daten")
 
 # Ordner-zu-Klassen-ID Mapping (ohne Faust und nop)
@@ -35,9 +35,11 @@ def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
     return x1, y1, x2, y2
 
 for image_path in BASE_DIR.rglob("*.jpg"):
-    folder_name = image_path.parent.name
+    original_folder_name = image_path.parent.name  # z. B. "index_m"
+    folder_name = original_folder_name  # Für Mapping und Verarbeitung
 
     # "_i", "_p", "_m" Suffixe entfernen
+    is_m_variant = folder_name.endswith("_m")
     for suffix in ["_i", "_p", "_m"]:
         if folder_name.endswith(suffix):
             folder_name = folder_name[:-len(suffix)]
@@ -73,8 +75,15 @@ for image_path in BASE_DIR.rglob("*.jpg"):
             x_max = max(x_coords)
             y_max = max(y_coords)
 
-            x1, y1, x2, y2 = adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
-                                                    padding_ratio=PADDING_RATIO, widen_ratio=WIDEN_RATIO)
+            # Wenn Ordner "_m" endet → größere Box
+            extra_pad = 0.2 if is_m_variant else 0.0
+            extra_wide = 0.2 if is_m_variant else 0.0
+
+            x1, y1, x2, y2 = adjust_bbox_width_only(
+                x_min, y_min, x_max, y_max, width, height,
+                padding_ratio=PADDING_RATIO + extra_pad,
+                widen_ratio=WIDEN_RATIO + extra_wide
+            )
 
             xc = (x1 + x2) / 2 / width
             yc = (y1 + y2) / 2 / height
@@ -85,4 +94,4 @@ for image_path in BASE_DIR.rglob("*.jpg"):
             with open(label_path, "w") as f:
                 f.write(f"{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
 
-print("  Fertig! Alle gültigen Labels wurden geschrieben.")
+print("✅ Fertig! Alle gültigen Labels wurden geschrieben.")
