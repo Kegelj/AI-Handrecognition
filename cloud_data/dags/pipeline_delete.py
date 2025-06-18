@@ -1,3 +1,4 @@
+import logging
 import sys
 sys.path.append("/opt")
 from connectors import database_connector as dc
@@ -6,16 +7,19 @@ from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
 
+
+logger = logging.getLogger(__name__)
+
 def delete_processed():
 
     tables = ["staging_gamedata","staging_bbox"]
 
     for table in tables:
-        print(f"Deleting processed data from {table}")
+        logger.info(f"Deleting processed data from {table}")
+        logger.info(f"Deleted the following entries: \n")
         statement = f"DELETE FROM {table} WHERE processed = True RETURNING *"
-        print(f"Deleted the following entries: \n")
-        print(dc.insert_manual(statement))
-    print("Deleting complete")
+        logger.info(dc.insert_manual(statement))
+    logger.info("Deleting complete")
 
 
 with DAG(

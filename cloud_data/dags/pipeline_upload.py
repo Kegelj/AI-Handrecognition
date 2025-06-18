@@ -1,16 +1,22 @@
+import logging
 import sys
-sys.path.append("/opt")
-from connectors import database_connector as dc
+from pathlib import Path
+sys.path.append("/")
+#sys.path.append(str(Path(__file__).resolve().parents[1]))
+from opt.connectors import database_connector as dc
 from pathlib import Path
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
 
 
+logger = logging.getLogger(__name__)
+
 
 def upload_stagingdata():
-    base_path = Path(__file__).resolve().parents[1] / "airflow_data"
-
+    #base_path = Path(__file__).resolve().parents[1] / "tmp/airflow_data"
+    base_path = "/tmp/airflow_data/"
+    logger.info(f"Defined Basepath: {base_path}")
     data_sources = {
         "data_bbox": {
             "table": "staging_bbox",
@@ -41,13 +47,17 @@ def upload_stagingdata():
     }
 
     for folder_name, config in data_sources.items():
-        folder_path = base_path / folder_name
-        processed_path = folder_path / "processed"
-        processed_path.mkdir(parents=True, exist_ok=True)
+        folder_path = base_path + folder_name
+        logger.info(f"Defined folderpath: {folder_path}")
+        processed_path = folder_path + "/processed"
+        processed_path = Path(processed_path)
+        logger.info(f"Defined processed path: {processed_path}")
+        #processed_path.mkdir(parents=True, exist_ok=True)
 
-        for file_path in folder_path.glob("*.csv"):
+        for file_path in Path(folder_path).rglob("*.csv"):
             try:
                 print(f" Processing file: {file_path.name}")
+                logger.info(f" Processing file: {file_path.name}")
 
                 columns_as_list = [col[0] for col in config["columns"]]
 
@@ -63,7 +73,23 @@ def upload_stagingdata():
                 new_path = processed_path / file_path.name
                 file_path.rename(new_path)
                 print(f" File moved to: {new_path}")
+                logger.info(f" File moved to: {new_path}")
 
             except Exception as e:
                 print(f" Error with file {file_path.name}: {e}")
+                logger.info(f" Error with file {file_path.name}: {e}")
+    print(base_path)
 
+with DAG(
+    'Upload_csvs_to_staging',
+    start_date=datetime(2024, 6, 9),
+    schedule_interval="5 4 * * sun",  # https://crontab.guru/#*/5_*_*_*_*
+    catchup=False,
+) as dag:
+
+    upload_task = PythonOperator(
+        task_id='Upload_csvs',
+        python_callable=upload_stagingdata
+    )
+if __name__ == "__main__":
+    upload_stagingdata()
