@@ -161,8 +161,11 @@ class Player:
         self.gravity += 0.8
         self.pos[1] += self.gravity
         
-        # Keep player in bounds (horizontal and vertical)
-        self.pos[0] = max(self.radius, min(WIDTH - self.radius, self.pos[0]))
+        # Lock Player on Vertical and teleport him on the Horizontal
+        if self.pos[0] < -self.radius:
+            self.pos[0] = WIDTH + self.radius
+        elif self.pos[0] > WIDTH + self.radius:
+            self.pos[0] = -self.radius
         self.pos[1] = max(self.radius, min(HEIGHT - 85, self.pos[1]))
         
         # Update cooldowns
@@ -170,7 +173,7 @@ class Player:
             self.shoot_cooldown -= 1
         if self.reload_cooldown > 0:
             self.reload_cooldown -= 1
-            
+
         # Auto-reload when ammo is low
         if self.auto_reload and self.ammo <= AUTO_RELOAD_THRESHOLD and self.reload_cooldown == 0:
             self.reload()
