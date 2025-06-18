@@ -6,6 +6,7 @@ from pathlib import Path
 import time
 from pynput.keyboard import Controller, Key
 from ultralytics import YOLO
+import torch
 
 # === YOLO-Klassennamen ===
 class_names = {
@@ -18,15 +19,17 @@ class_names = {
     6: "offen"
 }
 
-# === Zufälliger Dateiname-Generator ===
 def rand_string(length):
     return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
 
-# === Live Tracking mit YOLO Steuerung ===
 def live_tracking_yolo():
+    # === Modell laden und auf GPU verschieben (wenn vorhanden) ===
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"📦 Lade Modell auf {device.upper()} ...")
     model = YOLO("model_output/best.pt")
-    keyboard = Controller()
+    model.to(device)
 
+    keyboard = Controller()
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FPS, 20)
     print("🚀 Kamera gestartet. Drücke 'q' zum Beenden.")
@@ -39,50 +42,66 @@ def live_tracking_yolo():
     img_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     img_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # Zeit bis Taste losgelassen wird
+    # Tastenzustände
     key_expiry = {Key.left: 0, Key.right: 0, Key.up: 0, Key.space: 0}
     key_state = {Key.left: False, Key.right: False, Key.up: False, Key.space: False}
+
+    last_infer_time = 0
+    infer_interval = 0.05  # Nur alle 0.2s ein YOLO-Frame
 
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
+
             frame = cv2.flip(frame, 1)
             now = time.time()
-            results = model(frame, verbose=False)[0]
+
             best_box, best_label, max_conf = None, None, 0
 
-            for box in results.boxes:
-                conf = float(box.conf[0])
-                if conf > max_conf:
-                    max_conf = conf
-                    best_box = box
-                    best_label = class_names.get(int(box.cls[0]), "unknown")
+            # === Inferenz nur alle 0.2s ===
+            if now - last_infer_time > infer_interval:
+                infer_frame = cv2.resize(frame, (320, 240))
+                results = model(infer_frame, verbose=False)[0]
+                last_infer_time = now
 
-            if best_box is not None:
-                x1, y1, x2, y2 = best_box.xyxy[0].cpu().numpy()
-                cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+                for box in results.boxes:
+                    conf = float(box.conf[0])
+                    if conf > max_conf:
+                        max_conf = conf
+                        best_box = box
+                        best_label = class_names.get(int(box.cls[0]), "unknown")
 
-                if last_center is not None:
-                    dx = (cx - last_center[0]) / img_w
-                    dy = (cy - last_center[1]) / img_h
-                    if dx < -0.03:
-                        key_expiry[Key.left] = max(key_expiry[Key.left], now + press_duration)
-                    elif dx > 0.03:
-                        key_expiry[Key.right] = max(key_expiry[Key.right], now + press_duration)
-                    if dy < -0.03:
-                        key_expiry[Key.up] = max(key_expiry[Key.up], now + press_duration)
-                last_center = (cx, cy)
+                if best_box is not None:
+                    x1, y1, x2, y2 = best_box.xyxy[0].cpu().numpy()
+                    scale_x = img_w / 320
+                    scale_y = img_h / 240
+                    x1 *= scale_x
+                    x2 *= scale_x
+                    y1 *= scale_y
+                    y2 *= scale_y
+                    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
 
-                if best_label in ["offen", "index"]:
-                    key_expiry[Key.space] = max(key_expiry[Key.space], now + press_duration)
+                    if last_center is not None:
+                        dx = (cx - last_center[0]) / img_w
+                        dy = (cy - last_center[1]) / img_h
+                        if dx < -0.03:
+                            key_expiry[Key.left] = max(key_expiry[Key.left], now + press_duration)
+                        elif dx > 0.03:
+                            key_expiry[Key.right] = max(key_expiry[Key.right], now + press_duration)
+                        if dy < -0.03:
+                            key_expiry[Key.up] = max(key_expiry[Key.up], now + press_duration)
+                    last_center = (cx, cy)
 
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                cv2.putText(frame, best_label, (int(x1), int(y1) - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                    if best_label in ["offen", "index"]:
+                        key_expiry[Key.space] = max(key_expiry[Key.space], now + press_duration)
 
-            # Tastenstatus prüfen und ändern
+                    cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                    cv2.putText(frame, best_label, (int(x1), int(y1) - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+            # === Tastenstatus prüfen und setzen ===
             for key in key_expiry:
                 if now < key_expiry[key]:
                     if not key_state[key]:
@@ -104,6 +123,5 @@ def live_tracking_yolo():
             if key_state[key]:
                 keyboard.release(key)
 
-# === Hauptprogramm ===
 if __name__ == "__main__":
     live_tracking_yolo()
