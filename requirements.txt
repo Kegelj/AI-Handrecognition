@@ -1,1 +1,9 @@
 opencv-python
+pygame
+sys
+random
+time
+math
+os
+pandas
+string
