@@ -48,15 +48,24 @@ def _placeholder(value_list, origin="db"):
     if origin == "db":
         columns_tuple = tuple([column[0] for column in value_list])
         columns_count = len(columns_tuple)
+        columns_string = "(" + ", ".join(columns_tuple) + ")"  # Values in the correct form for Statement (value1,value2)
     if origin == "data":
         columns_tuple = value_list
         columns_count = len(columns_tuple[0])
 
-    columns_string = "(" + ", ".join(columns_tuple) + ")"  # Values in the correct form for Statement (value1,value2)
     value_placeholder = f"({('%s,' * (columns_count - 1) + '%s')})"  # Creates (%s,%s,...) with the number of columns
 
-    return columns_count, columns_string, columns_tuple, value_placeholder
+    if origin == "db":
+        return columns_count, columns_string, columns_tuple, value_placeholder
+    if origin == "data":
+        return columns_count, columns_tuple, value_placeholder
 
+def _columns_placeholder(values): # ["column1","column2",...]
+
+    columns_count = len(values)
+    columns_string = "(" + ", ".join(values) + ")"  # Values in the correct form for Statement (value1,value2)
+    column_placeholder = f"({('%s,' * (columns_count - 1) + '%s')})"  # Creates (%s,%s,...) with the number of columns
+    return columns_string, column_placeholder
 
 def query(statement: str):
 
@@ -115,9 +124,9 @@ def insert(table, values=None, amount="single",columns=None, operation="insert_a
         print(statement)
 
     if operation == "insert_specific":
-        _,_,value_placeholder = _placeholder(values, origin="data")
-        statement = f"INSERT INTO {table} {columns_string} VALUES {value_placeholder[2]}"
-
+        #_,_,value_placeholder = _placeholder(values, origin="data")
+        columns_string,value_placeholder = _columns_placeholder(columns)
+        statement = f"INSERT INTO {table} {columns_string} VALUES {value_placeholder}"
 
     connection = _connection()
     try:
@@ -131,6 +140,19 @@ def insert(table, values=None, amount="single",columns=None, operation="insert_a
 
             connection.commit()
             return cursor.statusmessage
+
+    finally:
+        connection.close()
+
+def insert_manual(statement):
+
+    try:
+        connection = _connection()
+        with connection.cursor() as cursor:
+                cursor.execute(statement)
+                #print(cursor.mogrify(statement))
+        connection.commit()
+        return cursor.statusmessage
 
     finally:
         connection.close()
