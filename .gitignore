@@ -1,4 +1,6 @@
-
+.idea/
+__pycache__
+logs
 training/acquisitions/
 training/extracted_pngs
 training/data_split
@@ -29,6 +31,3 @@ game/logs/
 .env
 cloud_data\connectors\__pycache__
 __init__.py
-
-
-
