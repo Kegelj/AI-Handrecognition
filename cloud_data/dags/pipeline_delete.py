@@ -19,7 +19,7 @@ def delete_processed():
 
 
 with DAG(
-    'Delete processed',
+    'Delete_processed',
     start_date=datetime(2024, 6, 9),
     schedule_interval="5 4 * * sun",  # https://crontab.guru/#*/5_*_*_*_*
     catchup=False,
