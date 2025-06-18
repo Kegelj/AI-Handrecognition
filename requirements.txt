@@ -1,6 +1,6 @@
 
 mediapipe==0.10.9
-
+pynput
 pandas
 numpy
 matplotlib
