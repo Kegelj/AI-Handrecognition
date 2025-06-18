@@ -15,32 +15,27 @@ def upload_stagingdata():
         "data_bbox": {
             "table": "staging_bbox",
             "columns": [
-                ('training',),
-                ('epoch',),
-                ('current_time_start',),
-                ('current_time_end',),
-                ('mean_squared_error',),
-                ('mean_center_dist',),
-                ('mean_size_error',),
-                ('mean_overlap',),
-                ('combined_score',),
-                ('acc_all_conditions',),
-                ('train_loss',),
-                ('val_loss',),
-                ('train_acc',),
-                ('val_acc',),
-                ('current_lr',),
-                ('img_size',),
-                ('batch_size',)
+                ('training',), ('epoch',), ('current_time_start',), ('current_time_end',),
+                ('mean_squared_error',), ('mean_center_dist',), ('mean_size_error',),
+                ('mean_overlap',), ('combined_score',), ('acc_all_conditions',),
+                ('train_loss',), ('val_loss',), ('train_acc',), ('val_acc',),
+                ('current_lr',), ('img_size',), ('batch_size',)
             ]
         },
         "data_game": {
             "table": "staging_gamedata",
             "columns": [
-                ('game_id',),
-                ('user_name',),
-                ('user_input',),
-                ('timestamp',)
+                ('game_id',), ('user_name',), ('user_input',), ('timestamp',)
+            ]
+        },
+        "data_yolo": {
+            "table": "staging_yolo",
+            "columns": [
+                ('epoch',), ('time',), ('train_box_loss',), ('train_cls_loss',), ('train_dfl_loss',),
+                ('metrics_precision_B',), ('metrics_recall_B',), ('metrics_mAP50_B',), ('metrics_mAP50_95_B',),
+                ('val_box_loss',), ('val_cls_loss',), ('val_dfl_loss',),
+                ('lr_pg0',), ('lr_pg1',), ('lr_pg2',),
+                ('yolo_training_id',)
             ]
         }
     }
@@ -65,18 +60,10 @@ def upload_stagingdata():
                     delimiter=","
                 )
 
-
                 new_path = processed_path / file_path.name
                 file_path.rename(new_path)
                 print(f" File moved to: {new_path}")
 
             except Exception as e:
                 print(f" Error with file {file_path.name}: {e}")
-
-
-
-
-
-
-
 
