@@ -17,6 +17,14 @@ class_names = {
     6: "offen"
 }
 
+# === Tastenzuordnung für Handzeichen ===
+key_map = {
+    "index": Key.up,       # alternativ: 'w'
+    "pinky": Key.left,     # alternativ: 'a'
+    "thumb": Key.right,    # alternativ: 'd'
+    "offen": Key.space     # entspricht Leertaste
+}
+
 # === Zufälliger Dateiname-Generator ===
 def rand_string(length):
     return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
@@ -26,6 +34,7 @@ def length_of_video(video_name):
     video_path = Path(__file__).resolve().parents[1] / "project_assets/videos" / video_name
     cap = cv2.VideoCapture(str(video_path))
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
     return length
 
 # === Frames extrahieren ===
@@ -58,22 +67,22 @@ def extracting_frames(video_name, save_path, skip_frames=5):
             cv2.imwrite(filename, frame)
             print(f"Frame {count} saved: {filename}")
         count += 1
-    else:
-        print("Videos fully saved.")
+
+    print("Videos fully saved.")
     cap.release()
     return 0
 
 # === Live Tracking mit YOLO ===
 def live_tracking_yolo():
-    model = YOLO("model_output/best.pt")  # Pfad zu deinem YOLO-Modell
+    model = YOLO("model_output/best.pt")
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)
-    print("🚀 Kamera gestartet. Drücke 'q' zum Beenden.")
+    if not cap.isOpened():
+        print("❌ Konnte Kamera nicht öffnen.")
+        return
 
-    # Fenster klein machen, damit das Spiel Fokus behält
-    cv2.namedWindow("YOLO Handzeichen", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("YOLO Handzeichen", 1, 1)
+    print("🚀 Kamera gestartet. Drücke 'q' zum Beenden.")
 
     try:
         while True:
@@ -91,37 +100,30 @@ def live_tracking_yolo():
                     continue
 
                 label = class_names.get(cls_id, f"Klasse {cls_id}")
+                key = key_map.get(label)
+                if key:
+                    keys_pressed.add(key)
 
-                # Steuerung basierend auf Handzeichen
-                if label == "index":
-                    keys_pressed.add('w')
-                elif label == "thumb":
-                    keys_pressed.add('d')
-                elif label == "pinky":
-                    keys_pressed.add('a')
-                elif label == "offen":
-                    keys_pressed.add(Key.space)
-
-                # Bounding Box und Label anzeigen
+                # Bounding Box zeichnen
                 xyxy = box.xyxy[0].cpu().numpy().astype(int)
                 cv2.rectangle(frame, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 255, 0), 2)
                 cv2.putText(frame, label, (xyxy[0], xyxy[1] - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-            # Tasten steuern
-            for key in ['w', 'a', 'd', Key.space]:
+            # Alle relevanten Tasten überprüfen
+            for key in [Key.up, Key.left, Key.right, Key.space]:
                 if key in keys_pressed:
                     keyboard.press(key)
                 else:
                     keyboard.release(key)
 
             cv2.imshow("YOLO Handzeichen", frame)
-            cv2.waitKey(1)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     finally:
         cap.release()
         cv2.destroyAllWindows()
-
 
 # === Hauptprogramm ===
 if __name__ == "__main__":
