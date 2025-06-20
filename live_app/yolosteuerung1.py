@@ -3,7 +3,7 @@ import random
 import string
 import os
 from pathlib import Path
-from pynput.keyboard import Controller
+from pynput.keyboard import Controller, Key
 from ultralytics import YOLO
 
 # === YOLO-Klassennamen ===
@@ -17,6 +17,16 @@ class_names = {
     6: "offen"
 }
 
+# === Tastenzuordnung für Handzeichen ===
+key_map = {
+    "index": [Key.up],                      # 'w'
+    "pinky": [Key.left],                    # 'a'
+    "thumb": [Key.right],                   # 'd'
+    "offen": [Key.space],                   # SPACE
+    "index_pinky": [Key.up, Key.left],      # up + left gleichzeitig
+    "thumb_index": [Key.up, Key.right]      # up + right gleichzeitig
+}
+
 # === Zufälliger Dateiname-Generator ===
 def rand_string(length):
     return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
@@ -26,6 +36,7 @@ def length_of_video(video_name):
     video_path = Path(__file__).resolve().parents[1] / "project_assets/videos" / video_name
     cap = cv2.VideoCapture(str(video_path))
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
     return length
 
 # === Frames extrahieren ===
@@ -58,17 +69,21 @@ def extracting_frames(video_name, save_path, skip_frames=5):
             cv2.imwrite(filename, frame)
             print(f"Frame {count} saved: {filename}")
         count += 1
-    else:
-        print("Videos fully saved.")
+
+    print("Videos fully saved.")
     cap.release()
     return 0
 
 # === Live Tracking mit YOLO ===
 def live_tracking_yolo():
-    model = YOLO("model_output/handzeichen_best.pt")  # Pfad zu deinem YOLO-Modell
+    model = YOLO("model_output/best.pt")
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("❌ Konnte Kamera nicht öffnen.")
+        return
+
     print("🚀 Kamera gestartet. Drücke 'q' zum Beenden.")
 
     try:
@@ -78,7 +93,6 @@ def live_tracking_yolo():
                 break
 
             results = model(frame, verbose=False)[0]
-
             keys_pressed = set()
 
             for box in results.boxes:
@@ -88,25 +102,19 @@ def live_tracking_yolo():
                     continue
 
                 label = class_names.get(cls_id, f"Klasse {cls_id}")
+                key_list = key_map.get(label, [])
+                for key in key_list:
+                    keys_pressed.add(key)
 
-                # Steuerung basierend auf Handzeichen
-                if label == "index":
-                    keys_pressed.add('w')
-                elif label == "thumb":
-                    keys_pressed.add('d')
-                elif label == "pinky":
-                    keys_pressed.add('a')
-                elif label == "offen":
-                    keys_pressed.add('space')
-
-                # Bounding Box und Label anzeigen
+                # Bounding Box zeichnen
                 xyxy = box.xyxy[0].cpu().numpy().astype(int)
                 cv2.rectangle(frame, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 255, 0), 2)
                 cv2.putText(frame, label, (xyxy[0], xyxy[1] - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-            # Tasten steuern
-            for key in ['w', 'a', 'd', 'space']:
+            # Alle möglichen Tasten durchgehen
+            all_possible_keys = {k for keylist in key_map.values() for k in keylist}
+            for key in all_possible_keys:
                 if key in keys_pressed:
                     keyboard.press(key)
                 else:
@@ -119,7 +127,6 @@ def live_tracking_yolo():
     finally:
         cap.release()
         cv2.destroyAllWindows()
-
 
 # === Hauptprogramm ===
 if __name__ == "__main__":
