@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 import requests
+import json
 
 load_dotenv()
 
@@ -10,17 +11,13 @@ password = os.getenv("AIRFLOW_PASSWORD")
 
 def airflow_check(actions):
 
-    operation = {
-        "connection": "connections?limit=100",
-        "version": "version",
-    }
-
-    action = endpoint + operation[actions]
-    print(f"action: {action}")
-    response = requests.get(action,auth=(username, password))
-    print(response.status_code)
-    print(response.json())
-
+    action = "version"
+    full_endpoint = endpoint + action
+    response = requests.get(full_endpoint, auth=(username, password))
+    if response.status_code == 200:
+        print(response.json())
+    else:
+        print("Failed to check version")
 
 def airflow_check_dags():
 
@@ -34,17 +31,25 @@ def airflow_check_dags():
         dag_list_tuples = [(dag["dag_id"], dag["file_token"]) for dag in response_json["dags"]]
         # [('Delete_processed', 'Ii9...Sy4c'),..]
         print(dag_list_tuples)
+    else:
+        print("Error when checking Dags")
 
-def airflow_run_dags():
+def airflow_run_dags(dag_id):
 
-    action = "dags/Delete_processed/dagRuns"
+    action = f"dags/{dag_id}/dagRuns"
     full_endpoint = endpoint + action
-    data = {
-        "conf": {},
-        "dag_run_id": "Delete_processed",
-        "execution_date": "2025-05-15T14:04:43.602Z",
-    }
-    response = requests.post(full_endpoint, auth=(username, password),data=data)
-    print(response.status_code)
 
-airflow_run_dags()
+    headers = {
+        "Content-Type": "application/json"
+    }
+    data = {
+        "conf": {}
+    }
+    response = requests.post(full_endpoint,headers=headers,data=json.dumps(data), auth=(username, password))
+
+    if response.status_code == 200:
+        print("DAG successfully startet:", response.json())
+    else:
+        print("Error while starting DAGs:", response.status_code, response.text)
+
+airflow_run_dags("CSV_Import_and_Processing_Pipeline")
