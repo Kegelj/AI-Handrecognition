@@ -56,7 +56,6 @@ def upload_stagingdata():
 
         for file_path in Path(folder_path).rglob("*.csv"):
             try:
-                print(f" Processing file: {file_path.name}")
                 logger.info(f" Processing file: {file_path.name}")
 
                 columns_as_list = [col[0] for col in config["columns"]]
@@ -72,11 +71,9 @@ def upload_stagingdata():
 
                 new_path = processed_path / file_path.name
                 file_path.rename(new_path)
-                print(f" File moved to: {new_path}")
                 logger.info(f" File moved to: {new_path}")
 
             except Exception as e:
-                print(f" Error with file {file_path.name}: {e}")
                 logger.info(f" Error with file {file_path.name}: {e}")
     print(base_path)
 
