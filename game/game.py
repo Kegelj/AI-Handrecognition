@@ -130,8 +130,8 @@ class Player:
         self.jump_power = 20
         self.speed = 7
         self.facing_right = True
-        self.health = 50
-        self.max_health = 50
+        self.health = 500
+        self.max_health = 500
         self.ammo = 10
         self.max_ammo = 10
         self.shoot_cooldown = 0
