@@ -29,5 +29,6 @@ game/assets/ivan.png
 training/alternativ_daten_labeltest/
 game/logs/
 .env
-cloud_data\connectors\__pycache__
+cloud_data/connectors/__pycache__
 __init__.py
+cloud_data/airflow_data/data_game

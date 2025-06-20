@@ -613,11 +613,11 @@ class Game:
         })
             
         try:
-            os.makedirs('game/logs', exist_ok=True)
+            df.to_csv(f'cloud_data/airflow_data/data_game/{User}_{game_id}.csv', index=False)
         except:
             pass
         
-        df.to_csv(f'game/logs/{User}_{game_id}.csv', index=False)
+        
 
     def run(self):
         running = True
