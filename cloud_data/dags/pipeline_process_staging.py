@@ -47,7 +47,7 @@ def process_game_stagingdata():
 
     # Insert game data into game_data table
     data_table = "game_data"
-    columns = ["game_id","user_input","time_in_milliseconds"]
+    columns = ["game_id","user_input","time_in_milliseconds","player_health","player_x","player_y","goat_kills","squirrel_kills"]
 
     logger.info(f"Starting import of game data")
     try:

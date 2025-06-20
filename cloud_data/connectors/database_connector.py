@@ -207,6 +207,8 @@ def update(table,column,value=False,action="processed"):
 
     if action == "processed":
         statement = f"UPDATE {table} SET processed=True WHERE {column} = '{value}'"
+    else:
+        return "Please provide a valid action"
 
     try:
         connection = _connection()
