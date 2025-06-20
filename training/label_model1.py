@@ -5,7 +5,7 @@ from pathlib import Path
 # Parameter
 PADDING_RATIO = 0.4
 WIDEN_RATIO = 0.4
-BASE_DIR = Path("training/alternativ_daten")
+BASE_DIR = Path("training/endtime_bilder")
 
 # Ordner-zu-Klassen-ID Mapping (ohne Faust und nop)
 FOLDER_TO_CLASS_ID = {
@@ -14,8 +14,7 @@ FOLDER_TO_CLASS_ID = {
     "pinky": 3,
     "thumb": 4,
     "thumb_index": 5,
-    "fronthand": 6,
-    "backhand": 6
+    "piu": 6
 }
 
 # MediaPipe Hands initialisieren

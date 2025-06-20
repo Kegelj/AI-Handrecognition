@@ -4,7 +4,7 @@ from pathlib import Path
 import random
 
 # === Parameter ===
-quellordner = Path("training/alternativ_daten")
+quellordner = Path("training/endtime_bilder")
 img_exts = {".jpg", ".jpeg", ".png"}
 split_ratio = 0.8  # 80% Train, 20% Val
 
