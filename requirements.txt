@@ -1,3 +1,4 @@
+
 mediapipe==0.10.9
 pynput
 pandas
@@ -8,3 +9,4 @@ tensorflow==2.15.0
 albumentations
 opencv-python
 pygame
+
