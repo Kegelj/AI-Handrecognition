@@ -31,7 +31,7 @@ def upload_stagingdata():
         "data_game": {
             "table": "staging_gamedata",
             "columns": [
-                ('game_id',), ('user_name',), ('user_input',), ('timestamp',),('player_health',),('player_x',),('player_y'),('goat_kills',),('squirrel_kills',)
+                ('game_id',), ('user_name',), ('user_input',), ('timestamp',),('player_health',),('player_x',),('player_y',),('goat_kills',),('squirrel_kills',)
             ]
         },
         "data_yolo": {
