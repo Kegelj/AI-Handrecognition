@@ -52,4 +52,5 @@ def airflow_run_dags(dag_id):
     else:
         print("Error while starting DAGs:", response.status_code, response.text)
 
-airflow_run_dags("CSV_Import_and_Processing_Pipeline")
+if __name__ == "__main__":
+    airflow_run_dags("CSV_Import_and_Processing_Pipeline")

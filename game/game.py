@@ -761,7 +761,7 @@ class Game:
             
         # Cleanup
         pygame.quit()
-        sys.exit()
+        return
 
 if __name__ == "__main__":
     game = Game()
