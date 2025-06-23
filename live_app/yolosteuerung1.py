@@ -9,7 +9,6 @@ from ultralytics import YOLO
 
 # === YOLO-Klassennamen ===
 class_names = {
-    0: "nop",
     1: "index",
     2: "index_pinky",
     3: "pinky",
@@ -75,7 +74,7 @@ def extracting_frames(video_name, save_path, skip_frames=5):
 
 # === Live Tracking mit YOLO (15 FPS Drosselung via sleep) ===
 def live_tracking_yolo():
-    model = YOLO("model_output/epoch5.pt")
+    model = YOLO("model_output/epoch41.pt")
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)

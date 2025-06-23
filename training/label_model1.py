@@ -7,6 +7,7 @@ BASE_DIR = Path("training/alternativ_daten")
 
 # Klassenzuordnung (ohne Faust und nop)
 FOLDER_TO_CLASS_ID = {
+    "faust": 0,
     "index": 1,
     "index_pinky": 2,
     "pinky": 3,
@@ -43,7 +44,7 @@ for image_path in BASE_DIR.rglob("*.jpg"):
             break
 
     # Ignorieren
-    if folder_name.lower() in ["nop", "faust"]:
+    if folder_name.lower() in ["nop"]:
         print(f" ⏭ Ignoriere Ordner: {folder_name} ({image_path.name})")
         continue
 
