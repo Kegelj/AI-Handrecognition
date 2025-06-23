@@ -31,5 +31,7 @@ game/logs/
 .env
 cloud_data\connectors\__pycache__
 __init__.py
+live_app/__pycache__
+cloud_data/airflow_data/data_game
 cloud_data/airflow_data/
 cloud_data/responses.txt

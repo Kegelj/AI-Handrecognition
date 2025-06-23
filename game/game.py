@@ -18,7 +18,7 @@ GRAY = (128, 128, 128)
 FPS = 70
 ARROW_SIZE = 60
 ARROW_GLOW_TIME = 10
-AUTO_RELOAD_THRESHOLD = 5  # ammo count to trigger auto-reload
+AUTO_RELOAD_THRESHOLD = 0  # ammo count to trigger auto-reload
 
 base_path = os.path.join(os.path.dirname(__file__), "assets\\")
 
@@ -130,12 +130,14 @@ class Player:
         self.jump_power = 20
         self.speed = 7
         self.facing_right = True
-        self.health = 500
-        self.max_health = 500
+        self.health = 50
+        self.max_health = 50
         self.ammo = 10
         self.max_ammo = 10
         self.shoot_cooldown = 0
         self.reload_cooldown = 0
+        self.reload_duration = 90
+        self.is_reloading = False
         self.auto_reload = True
         self.load_images()
 
@@ -171,11 +173,15 @@ class Player:
         # Update cooldowns
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
+        
         if self.reload_cooldown > 0:
             self.reload_cooldown -= 1
+        elif self.is_reloading:
+            self.ammo = self.max_ammo
+            self.is_reloading = False
 
         # Auto-reload when ammo is low
-        if self.auto_reload and self.ammo <= AUTO_RELOAD_THRESHOLD and self.reload_cooldown == 0:
+        if self.auto_reload and self.ammo <= AUTO_RELOAD_THRESHOLD and not self.is_reloading:
             self.reload()
             
     def jump(self):
@@ -185,6 +191,9 @@ class Player:
     def shoot(self):
         if not self.gun_visible:
             print("Can't shoot - gun is hidden!")
+            return None
+
+        if self.is_reloading:
             return None
         if self.ammo > 0 and self.shoot_cooldown <= 0:
             self.ammo -= 1
@@ -197,11 +206,11 @@ class Player:
                 'facing_right': self.facing_right
             }
         return None
-        
+    
     def reload(self):
-        if self.reload_cooldown == 0:
-            self.ammo = self.max_ammo
-            self.reload_cooldown = 30  # Reload cooldown
+        if not self.is_reloading and self.ammo < self.max_ammo:
+            self.is_reloading = True
+            self.reload_cooldown = self.reload_duration
         
     def draw(self, screen):
         if self.image:
@@ -212,14 +221,13 @@ class Player:
 
 class Game:
     def __init__(self):
+        # Starting the intern Game Stopwatch
         self.stopwatch = Stopwatch()
         self.stopwatch.start()
 
         self.player_name = ""
         self.name_imput_active = False
         self.pressed_keys = {}
-        self.gestures = []
-        self.timestamps = []
         
         # Initialize pygame
         pygame.init()
@@ -235,6 +243,14 @@ class Game:
         self.enemies = []
         self.last_enemy_spawn = 0
         self.enemy_spawn_interval = 2000
+
+        # Logs 
+        self.player_health_log = []
+        self.player_position_log = []
+        self.goat_kills_log = []
+        self.squirrel_kills_log = []
+        self.gestures = []
+        self.timestamps = []
         
         # Enemy tracking
         self.enemies_killed = {
@@ -259,6 +275,7 @@ class Game:
         self.load_assets()
         self.setup_audio()
 
+    # Switch between Fullscreen and Windowed Mode
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
         if self.fullscreen:
@@ -266,6 +283,7 @@ class Game:
         else:
             self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
+    # Spawn Enemys
     def spawn_enemy(self):
         """Spawn random enemy type"""
         # After 10 total kills, spawn more squirrels
@@ -438,16 +456,27 @@ class Game:
         ammo_label = font.render("Ammo", True, WHITE)
         self.screen.blit(ammo_label, (20, 0))
         
+        # Neuer Reload Status
+        if self.player.is_reloading:
+            reload_progress = 1 - (self.player.reload_cooldown / self.player.reload_duration)
+            reload_width = int(200 * reload_progress)
+            pygame.draw.rect(self.screen, (255, 165, 0), (20, 170, reload_width, 15))
+            pygame.draw.rect(self.screen, WHITE, (20, 170, 200, 15), 2)
+            reload_text = small_font.render("RELOADING...", True, (255, 165, 0))
+            self.screen.blit(reload_text, (20, 150))
+        
         # Gun status
         gun_status = "READY" if self.player.gun_visible else "HIDDEN"
-        status_color = (0, 255, 0) if self.player.gun_visible else (255, 0, 0)
+        if self.player.is_reloading:
+            gun_status = "RELOADING"
+        status_color = (0, 255, 0) if self.player.gun_visible and not self.player.is_reloading else (255, 165, 0) if self.player.is_reloading else (255, 0, 0)
         status_text = font.render(f"Gun: {gun_status}", True, status_color)
         self.screen.blit(status_text, (20, 120))
         
         # Auto-reload indicator
         if self.player.auto_reload:
             auto_text = small_font.render("AUTO-RELOAD ON", True, (0, 255, 255))
-            self.screen.blit(auto_text, (20, 145))
+            self.screen.blit(auto_text, (20, 195))
             
         # Health bar
         health_width = (self.player.health / self.player.max_health) * 200
@@ -535,29 +564,60 @@ class Game:
                 self.arrows['left'].trigger()
                 self.gestures.append(1)
                 self.timestamps.append(self.stopwatch.get_timestamp())
+                self.player_health_log.append(self.player.health)
+                self.player_position_log.append((self.player.pos[0], self.player.pos[1]))
+                self.goat_kills_log.append(self.enemies_killed[EnemyType.GOAT])
+                self.squirrel_kills_log.append(self.enemies_killed[EnemyType.SQUIRREL])
+                
             elif key in (pygame.K_RIGHT, pygame.K_d):
                 self.arrows['right'].trigger()
                 self.gestures.append(2)
                 self.timestamps.append(self.stopwatch.get_timestamp())
+                self.player_health_log.append(self.player.health)
+                self.player_position_log.append((self.player.pos[0], self.player.pos[1]))
+                self.goat_kills_log.append(self.enemies_killed[EnemyType.GOAT])
+                self.squirrel_kills_log.append(self.enemies_killed[EnemyType.SQUIRREL])
+                
             elif key in (pygame.K_UP, pygame.K_w):
                 self.arrows['up'].trigger()
                 self.gestures.append(3)
                 self.timestamps.append(self.stopwatch.get_timestamp())
+                self.player_health_log.append(self.player.health)
+                self.player_position_log.append((self.player.pos[0], self.player.pos[1]))
+                self.goat_kills_log.append(self.enemies_killed[EnemyType.GOAT])
+                self.squirrel_kills_log.append(self.enemies_killed[EnemyType.SQUIRREL])
+                
             elif key == pygame.K_SPACE:
                 self.arrows['space'].trigger()
                 self.gestures.append(4)
                 self.timestamps.append(self.stopwatch.get_timestamp())
+                self.player_health_log.append(self.player.health)
+                self.player_position_log.append((self.player.pos[0], self.player.pos[1]))
+                self.goat_kills_log.append(self.enemies_killed[EnemyType.GOAT])
+                self.squirrel_kills_log.append(self.enemies_killed[EnemyType.SQUIRREL])
 
     def extract_infos(self):
         game_id = "".join(random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
         User = self.player_name
-        df = pandas.DataFrame({"game_id": game_id,
-                               "user_name": User,
-                               "user_input": self.gestures,
-                               "timestamp": self.timestamps,
-                               "goat_kills": self.enemies_killed[EnemyType.GOAT],
-                               "squirrel_kills": self.enemies_killed[EnemyType.SQUIRREL]})
-        df.to_csv(f'game/logs/{User}_{game_id}.csv')
+        
+        df = pandas.DataFrame({
+            "game_id": game_id,
+            "user_name": User,
+            "user_input": self.gestures,
+            "timestamp": self.timestamps,
+            "player_health": self.player_health_log[:len(self.gestures)],
+            "player_x": [int(pos[0]) for pos in self.player_position_log[:len(self.gestures)]],
+            "player_y": [int(pos[1]) for pos in self.player_position_log[:len(self.gestures)]],
+            "goat_kills": self.goat_kills_log[:len(self.gestures)],
+            "squirrel_kills": self.squirrel_kills_log[:len(self.gestures)]
+        })
+            
+        try:
+            df.to_csv(f'cloud_data/airflow_data/data_game/{User}_{game_id}.csv', index=False)
+        except:
+            pass
+        
+        
 
     def run(self):
         running = True
@@ -619,10 +679,14 @@ class Game:
                             self.state = GameState.MENU
                             # Reset game state
                             self.enemies_killed = {EnemyType.GOAT: 0, EnemyType.SQUIRREL: 0}
-                            self.total_kills = 0
                             self.player = Player()
                             self.bullets = []
                             self.enemies = []
+ 
+                            self.player_health_log = []
+                            self.player_position_log = []
+                            self.goat_kills_log = []
+                            self.squirrel_kills_log = []
                         else:
                             if len(self.player_name) < 10 and event.unicode.isprintable():
                                 self.player_name += event.unicode
@@ -650,7 +714,7 @@ class Game:
                 self.draw_gun()
                 self.draw_hud()
                 self.draw_enemies()
-                self.draw_arrows()  # Draw gesture indicators
+                self.draw_arrows()
                 
                 if self.ground:
                     self.screen.blit(self.ground, (0, 755))
@@ -697,7 +761,7 @@ class Game:
             
         # Cleanup
         pygame.quit()
-        sys.exit()
+        return
 
 if __name__ == "__main__":
     game = Game()
