@@ -6,16 +6,16 @@ import subprocess
 import os
 
 def main():
-    # Pfad zur YAML-Datei
+    # === Path to the YAML config file ===
     yaml_path = Path(__file__).parent / "handzeichen.yaml"
     if not yaml_path.exists():
-        print(f"YAML-Datei nicht gefunden: {yaml_path}")
+        print(f" YAML file not found: {yaml_path}")
         return
 
-    # Modell laden (lädt automatisch von Ultralytics, wenn lokal nicht vorhanden)
+    # === Load YOLO model (automatically downloads if not present) ===
     model = YOLO("yolov8n.pt")
 
-    # Training starten und jede Epoche speichern
+    # === Start training (saves model after every epoch) ===
     model.train(
         data=str(yaml_path),
         epochs=50,
@@ -23,36 +23,38 @@ def main():
         batch=16,
         name="handzeichen_train",
         pretrained=True,
-        save_period=1
+        save_period=1  # Save model after every epoch
     )
 
-    # Letztes Run-Verzeichnis ermitteln
+    # === Locate latest training run directory ===
     run_dirs = sorted(Path("runs/detect").glob("handzeichen_train*"), key=os.path.getmtime)
     if not run_dirs:
-        print("Kein Run-Verzeichnis gefunden.")
+        print(" No training run directory found.")
         return
 
     run_dir = run_dirs[-1]
     results_csv = run_dir / "results.csv"
-    ziel_csv = Path("model_output/trainings_log.csv")
+    output_csv = Path("model_output/trainings_log.csv")
 
+    # === Give time for file system to flush ===
     time.sleep(1)
 
     if results_csv.exists():
-        shutil.copy(results_csv, ziel_csv)
-        print(f"Trainings-CSV gespeichert unter: {ziel_csv.resolve()}")
+        shutil.copy(results_csv, output_csv)
+        print(f" Training log saved to: {output_csv.resolve()}")
 
+        # === Run optional post-processing script ===
         uuid_script = Path("runs/csv_uuid_ergenzung.py")
         if uuid_script.exists():
             try:
                 subprocess.run(["python", str(uuid_script)], check=True)
-                print("UUID-Ergänzungs-Skript erfolgreich ausgeführt.")
+                print(" UUID enrichment script executed successfully.")
             except subprocess.CalledProcessError as e:
-                print(f"Fehler beim Ausführen des UUID-Skripts: {e}")
+                print(f" Error running UUID script: {e}")
         else:
-            print("UUID-Ergänzungs-Skript nicht gefunden.")
+            print(" UUID enrichment script not found.")
     else:
-        print("results.csv nicht gefunden. Wurde das Training abgebrochen oder ist fehlgeschlagen?")
+        print(" results.csv not found. Was training aborted or failed?")
 
 if __name__ == "__main__":
     main()

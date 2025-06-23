@@ -7,7 +7,7 @@ from pathlib import Path
 from pynput.keyboard import Controller, Key
 from ultralytics import YOLO
 
-# === YOLO-Klassennamen ===
+# === Class ID to gesture name mapping ===
 class_names = {
     1: "index",
     2: "index_pinky",
@@ -17,7 +17,7 @@ class_names = {
     6: "piu"
 }
 
-# === Tastenzuordnung für Handzeichen ===
+# === Gesture to key mapping ===
 key_map = {
     "index": Key.up,
     "pinky": Key.left,
@@ -25,11 +25,11 @@ key_map = {
     "piu": Key.space
 }
 
-# === Zufälliger Dateiname-Generator ===
+# === Generate a random string for filenames ===
 def rand_string(length):
     return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
 
-# === Länge des Videos ermitteln ===
+# === Get number of frames in a video ===
 def length_of_video(video_name):
     video_path = Path(__file__).resolve().parents[1] / "project_assets/videos" / video_name
     cap = cv2.VideoCapture(str(video_path))
@@ -37,14 +37,14 @@ def length_of_video(video_name):
     cap.release()
     return length
 
-# === Frames extrahieren ===
+# === Extract frames from video, skipping every N frames ===
 def extracting_frames(video_name, save_path, skip_frames=5):
-    print("*******EXTRACTING PHASE********")
+    print(" Extracting video frames...")
 
-    file_name_without_ext = os.path.splitext(video_name)[0]
-    length = length_of_video(video_name)
-    if length == 0:
-        print("Length is 0, exiting extracting phase.")
+    file_name = os.path.splitext(video_name)[0]
+    total_frames = length_of_video(video_name)
+    if total_frames == 0:
+        print(" Video length is 0. Aborting.")
         return 0
 
     video_path = Path(__file__).resolve().parents[1] / "project_assets/videos" / video_name
@@ -52,38 +52,40 @@ def extracting_frames(video_name, save_path, skip_frames=5):
     ret, frame = cap.read()
 
     count = 0
-    random_string = rand_string(3)
+    rand_suffix = rand_string(3)
 
-    test_file_path = f"{save_path}{file_name_without_ext}_{random_string}_{count}_TEST.jpg"
+    # Save initial test frame
+    test_file_path = f"{save_path}{file_name}_{rand_suffix}_{count}_TEST.jpg"
     cv2.imwrite(test_file_path, frame)
     if os.path.isfile(test_file_path):
-        print("Saving Test Frame was Successful\nContinuing Extraction Phase")
+        print(" Test frame saved. Continuing extraction...")
 
+    # Main extraction loop
     count = 1
     while ret:
         ret, frame = cap.read()
         if ret and count % skip_frames == 0:
-            filename = f"{save_path}{file_name_without_ext}_{random_string}_{count}.jpg"
+            filename = f"{save_path}{file_name}_{rand_suffix}_{count}.jpg"
             cv2.imwrite(filename, frame)
-            print(f"Frame {count} saved: {filename}")
+            print(f" Saved frame {count}: {filename}")
         count += 1
 
-    print("Videos fully saved.")
     cap.release()
+    print(" All frames extracted successfully.")
     return 0
 
-# === Live Tracking mit YOLO (15 FPS Drosselung via sleep) ===
+# === Live tracking with YOLO + keyboard control (throttled to 15 FPS) ===
 def live_tracking_yolo():
     model = YOLO("model_output/epoch41.pt")
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print(" Konnte Kamera nicht öffnen.")
+        print(" Failed to open webcam.")
         return
 
-    print(" Kamera gestartet. Drücke 'q' zum Beenden.")
-    last_piu_time = 0  # Zeitpunkt der letzten piu-Erkennung
+    print(" Hand gesture control started. Press 'q' to quit.")
+    last_piu_time = 0  # Last time 'piu' (space) was triggered
 
     try:
         while True:
@@ -103,8 +105,9 @@ def live_tracking_yolo():
                 if conf < 0.5:
                     continue
 
-                label = class_names.get(cls_id, f"Klasse {cls_id}")
+                label = class_names.get(cls_id, f"class {cls_id}")
 
+                # Combine gestures → multiple keys
                 if label == "index_pinky":
                     keys_pressed.update([Key.left, Key.up])
                 elif label == "thumb_index":
@@ -118,30 +121,31 @@ def live_tracking_yolo():
                     if key:
                         keys_pressed.add(key)
 
-                xyxy = box.xyxy[0].cpu().numpy().astype(int)
-                cv2.rectangle(frame, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 255, 0), 2)
-                cv2.putText(frame, label, (xyxy[0], xyxy[1] - 10),
+                # Draw bounding box + label
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, label, (x1, y1 - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
+            # Simulate key presses
             for key in [Key.up, Key.left, Key.right, Key.space]:
                 if key in keys_pressed:
                     keyboard.press(key)
                 else:
                     keyboard.release(key)
 
-            cv2.imshow("YOLO Handzeichen", frame)
+            cv2.imshow(" YOLO Hand Gesture Recognition", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            # === 15 FPS Drosselung ===
+            # Throttle to ~15 FPS
             elapsed = time.time() - loop_start
-            sleep_time = max(0, (1 / 15) - elapsed)
-            time.sleep(sleep_time)
+            time.sleep(max(0, (1 / 15) - elapsed))
 
     finally:
         cap.release()
         cv2.destroyAllWindows()
 
-# === Hauptprogramm ===
+# === Entry point ===
 if __name__ == "__main__":
     live_tracking_yolo()
