@@ -31,7 +31,8 @@ game/logs/
 .env
 cloud_data\connectors\__pycache__
 __init__.py
-training/ballebilder#.zip
-training/bilderx/
-training/bildery/
-training/endtime_bilder/
+live_app/__pycache__
+cloud_data/airflow_data/data_game
+cloud_data/airflow_data/
+cloud_data/responses.txt
+

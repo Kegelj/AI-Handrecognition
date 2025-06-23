@@ -17,9 +17,16 @@ INSERT INTO game_user (name) VALUES ('Peter')
 INSERT INTO game_user (name) VALUES ('Peter'),('Herbert') ON CONFLICT DO NOTHING;
 insert into staging_gamedata (game_id,user_name,user_input,timestamp) VALUES ('45BX05','Peter',5,12.15)
 
-UPDATE staging_gamedata set processed=True where game_id='36B0WC';
+UPDATE staging_gamedata set processed=False;
 
 select distinct game_id from staging_gamedata where processed=False
 	
 SELECT * FROM staging_gamedata WHERE processed=False
 SELECT DISTINCT user_name from staging_gamedata WHERE processed = False
+
+ALTER TABLE staging_gamedata
+ADD COLUMN player_health INTEGER,
+ADD COLUMN player_x INTEGER,
+ADD COLUMN player_y INTEGER,
+ADD COLUMN goat_kills INTEGER,
+ADD COLUMN squirrel_kills INTEGER;

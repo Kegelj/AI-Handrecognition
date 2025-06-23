@@ -31,7 +31,7 @@ def upload_stagingdata():
         "data_game": {
             "table": "staging_gamedata",
             "columns": [
-                ('game_id',), ('user_name',), ('user_input',), ('timestamp',)
+                ('game_id',), ('user_name',), ('user_input',), ('timestamp',),('player_health',),('player_x',),('player_y',),('goat_kills',),('squirrel_kills',)
             ]
         },
         "data_yolo": {
@@ -54,7 +54,7 @@ def upload_stagingdata():
         logger.info(f"Defined processed path: {processed_path}")
         #processed_path.mkdir(parents=True, exist_ok=True)
 
-        for file_path in Path(folder_path).rglob("*.csv"):
+        for file_path in Path(folder_path).glob("*.csv"):
             try:
                 logger.info(f" Processing file: {file_path.name}")
 
@@ -88,5 +88,7 @@ with DAG(
         task_id='Upload_csvs',
         python_callable=upload_stagingdata
     )
+"""    
 if __name__ == "__main__":
     upload_stagingdata()
+"""
