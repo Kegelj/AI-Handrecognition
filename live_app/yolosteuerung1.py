@@ -2,6 +2,7 @@ import cv2
 import random
 import string
 import os
+import time
 from pathlib import Path
 from pynput.keyboard import Controller, Key
 from ultralytics import YOLO
@@ -14,17 +15,15 @@ class_names = {
     3: "pinky",
     4: "thumb",
     5: "thumb_index",
-    6: "offen"
+    6: "piu"
 }
 
 # === Tastenzuordnung für Handzeichen ===
 key_map = {
-    "index": [Key.up],                      # 'w'
-    "pinky": [Key.left],                    # 'a'
-    "thumb": [Key.right],                   # 'd'
-    "offen": [Key.space],                   # SPACE
-    "index_pinky": [Key.up, Key.left],      # up + left gleichzeitig
-    "thumb_index": [Key.up, Key.right]      # up + right gleichzeitig
+    "index": Key.up,
+    "pinky": Key.left,
+    "thumb": Key.right,
+    "piu": Key.space
 }
 
 # === Zufälliger Dateiname-Generator ===
@@ -74,26 +73,30 @@ def extracting_frames(video_name, save_path, skip_frames=5):
     cap.release()
     return 0
 
-# === Live Tracking mit YOLO ===
+# === Live Tracking mit YOLO (15 FPS Drosselung via sleep) ===
 def live_tracking_yolo():
-    model = YOLO("model_output/best.pt")
+    model = YOLO("model_output/epoch5.pt")
     keyboard = Controller()
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("❌ Konnte Kamera nicht öffnen.")
+        print(" Konnte Kamera nicht öffnen.")
         return
 
-    print("🚀 Kamera gestartet. Drücke 'q' zum Beenden.")
+    print(" Kamera gestartet. Drücke 'q' zum Beenden.")
+    last_piu_time = 0  # Zeitpunkt der letzten piu-Erkennung
 
     try:
         while True:
+            loop_start = time.time()
+
             ret, frame = cap.read()
             if not ret:
                 break
 
             results = model(frame, verbose=False)[0]
             keys_pressed = set()
+            current_time = time.time()
 
             for box in results.boxes:
                 cls_id = int(box.cls[0])
@@ -102,19 +105,26 @@ def live_tracking_yolo():
                     continue
 
                 label = class_names.get(cls_id, f"Klasse {cls_id}")
-                key_list = key_map.get(label, [])
-                for key in key_list:
-                    keys_pressed.add(key)
 
-                # Bounding Box zeichnen
+                if label == "index_pinky":
+                    keys_pressed.update([Key.left, Key.up])
+                elif label == "thumb_index":
+                    keys_pressed.update([Key.right, Key.up])
+                elif label == "piu":
+                    if current_time - last_piu_time > 1.0:
+                        keys_pressed.add(Key.space)
+                        last_piu_time = current_time
+                else:
+                    key = key_map.get(label)
+                    if key:
+                        keys_pressed.add(key)
+
                 xyxy = box.xyxy[0].cpu().numpy().astype(int)
                 cv2.rectangle(frame, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 255, 0), 2)
                 cv2.putText(frame, label, (xyxy[0], xyxy[1] - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-            # Alle möglichen Tasten durchgehen
-            all_possible_keys = {k for keylist in key_map.values() for k in keylist}
-            for key in all_possible_keys:
+            for key in [Key.up, Key.left, Key.right, Key.space]:
                 if key in keys_pressed:
                     keyboard.press(key)
                 else:
@@ -123,6 +133,11 @@ def live_tracking_yolo():
             cv2.imshow("YOLO Handzeichen", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+
+            # === 15 FPS Drosselung ===
+            elapsed = time.time() - loop_start
+            sleep_time = max(0, (1 / 15) - elapsed)
+            time.sleep(sleep_time)
 
     finally:
         cap.release()
