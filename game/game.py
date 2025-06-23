@@ -101,13 +101,13 @@ class Enemy:
         self.speed = random.randint(3, 7)  # Random enemy speed
         
         if enemy_type == EnemyType.GOAT:
-            self.health = 150
-            self.max_health = 150
+            self.health = 75
+            self.max_health = 75
             self.attack = 25
             self.image_name = "goat.png"
         else:  # SQUIRREL
-            self.health = 75
-            self.max_health = 75
+            self.health = 125
+            self.max_health = 125
             self.attack = 35
             self.image_name = "squirrel.png"
             
@@ -411,11 +411,10 @@ class Game:
 
         instructions = [
             "",
-            "Left Arrow / A - Move left",
-            "Right Arrow / D - Move right", 
-            "Up Arrow / W - Jump",
-            "SPACE - Shoot (auto-reload enabled)",
-            "Z - Manual reload",
+            "Pinky Finger / A - Move left",
+            "Thumb  / D - Move right", 
+            "Index Finger / W - Jump",
+            "Shoot / Automatic",
             "P - Pause",
             "F - Fullscreen",
             "",
@@ -589,8 +588,8 @@ class Game:
                 
             elif key == pygame.K_SPACE:
                 self.arrows['space'].trigger()
-                self.gestures.append(4)
-                self.timestamps.append(self.stopwatch.get_timestamp())
+                #self.gestures.append(4)
+                #self.timestamps.append(self.stopwatch.get_timestamp())
                 self.player_health_log.append(self.player.health)
                 self.player_position_log.append((self.player.pos[0], self.player.pos[1]))
                 self.goat_kills_log.append(self.enemies_killed[EnemyType.GOAT])
@@ -617,15 +616,16 @@ class Game:
         except:
             pass
         
-        
 
     def run(self):
         running = True
         first_enemy_spawned = False
+        frame_counter = 0
 
         while running:
             current_time = pygame.time.get_ticks()
-        
+            frame_counter += 1
+
             if self.state == GameState.PLAYING and not first_enemy_spawned and current_time > 1000:
                 self.spawn_enemy()
                 first_enemy_spawned = True
@@ -651,11 +651,7 @@ class Game:
                             if hasattr(self, 'gun_toggle_sound') and self.gun_toggle_sound:
                                 self.gun_toggle_sound.play()
                         if event.key == pygame.K_UP or event.key == pygame.K_w:
-                            self.player.jump()                           
-                        if event.key == pygame.K_SPACE:
-                            bullet = self.player.shoot()
-                            if bullet:
-                                self.bullets.append(bullet)
+                            self.player.jump()                                            
                         if event.key == pygame.K_z:
                             self.player.reload()
                         if event.key == pygame.K_p:
@@ -696,7 +692,14 @@ class Game:
                 
             elif self.state == GameState.PLAYING:
                 keys = pygame.key.get_pressed()
-                
+                # Autoshoot
+                if frame_counter % 15 == 0:
+                    bullet = self.player.shoot()
+                    if bullet:
+                        self.bullets.append(bullet)
+                        if frame_counter > 100:
+                            frame_counter == 0
+
                 self.player.update(keys)
                 self.update_bullets()
                 self.update_enemies()

@@ -56,7 +56,7 @@ def main():
 
         if pipeline_successull:
             print("Pipline successfully triggered!")
-            cleanup_csv_stash("cloud_data/airflow_data/data_game/")
+            #cleanup_csv_stash("cloud_data/airflow_data/data_game/")
         else:
             print("ERROR: Couldn't Execute Pipeline Process.")
             print("WARNING: CSV Files are kept locally.")
