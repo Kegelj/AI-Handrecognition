@@ -267,8 +267,8 @@ class Game:
         self.arrows = {
             'left': ArrowIndicator(20, HEIGHT // 2, 'left'),
             'right': ArrowIndicator(WIDTH - 80, HEIGHT // 2, 'right'),
-            'up': ArrowIndicator((WIDTH // 2) - 30, (HEIGHT // 2) - 300, 'up'),
-            'space': ArrowIndicator((WIDTH // 2) - 30, HEIGHT // 2, 'space')
+            'up': ArrowIndicator((WIDTH // 2) - 30, (HEIGHT // 2) - 300, 'up')
+            #'space': ArrowIndicator((WIDTH // 2) - 30, HEIGHT // 2, 'space')
         }
         
         # Load assets
@@ -508,8 +508,8 @@ class Game:
         labels = [
             ("LEFT", self.arrows['left'].x + 15, self.arrows['left'].y + 65),
             ("RIGHT", self.arrows['right'].x + 10, self.arrows['right'].y + 65),
-            ("JUMP", self.arrows['up'].x + 15, self.arrows['up'].y + 65),
-            ("SHOOT", self.arrows['space'].x + 10, self.arrows['space'].y + 65)
+            ("JUMP", self.arrows['up'].x + 15, self.arrows['up'].y + 65)
+            #("SHOOT", self.arrows['space'].x + 10, self.arrows['space'].y + 65)
         ]
         
         for text, x, y in labels:
@@ -587,7 +587,7 @@ class Game:
                 self.squirrel_kills_log.append(self.enemies_killed[EnemyType.SQUIRREL])
                 
             elif key == pygame.K_SPACE:
-                self.arrows['space'].trigger()
+                #self.arrows['space'].trigger()
                 #self.gestures.append(4)
                 #self.timestamps.append(self.stopwatch.get_timestamp())
                 self.player_health_log.append(self.player.health)
