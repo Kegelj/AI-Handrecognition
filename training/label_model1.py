@@ -2,26 +2,24 @@ import cv2
 import mediapipe as mp
 from pathlib import Path
 
-# Parameter
-PADDING_RATIO = 0.4
-WIDEN_RATIO = 0.4
+# Basisverzeichnis
 BASE_DIR = Path("training/alternativ_daten")
 
-# Ordner-zu-Klassen-ID Mapping (ohne Faust und nop)
+# Klassenzuordnung (ohne Faust und nop)
 FOLDER_TO_CLASS_ID = {
     "index": 1,
     "index_pinky": 2,
     "pinky": 3,
     "thumb": 4,
     "thumb_index": 5,
-    "fronthand": 6,
-    "backhand": 6
+    "piu": 6
 }
 
 # MediaPipe Hands initialisieren
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=True)
 
+# BBox-Anpassung
 def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
                            padding_ratio=0.15, widen_ratio=0.2):
     box_w = x_max - x_min
@@ -34,23 +32,24 @@ def adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
     y2 = int(min(y_max + pad_h, height))
     return x1, y1, x2, y2
 
+# Verarbeitung
 for image_path in BASE_DIR.rglob("*.jpg"):
     folder_name = image_path.parent.name
 
-    # "_i", "_p", "_m" Suffixe entfernen
+    # Suffix entfernen
     for suffix in ["_i", "_p", "_m"]:
         if folder_name.endswith(suffix):
             folder_name = folder_name[:-len(suffix)]
             break
 
-    # NOP und FAUST überspringen
+    # Ignorieren
     if folder_name.lower() in ["nop", "faust"]:
         print(f" ⏭ Ignoriere Ordner: {folder_name} ({image_path.name})")
         continue
 
     class_id = FOLDER_TO_CLASS_ID.get(folder_name)
     if class_id is None:
-        print(f" ⚠️ Unbekannter Ordnername: {folder_name}")
+        print(f"  Unbekannter Ordnername: {folder_name}")
         continue
 
     # Bild laden
@@ -73,8 +72,26 @@ for image_path in BASE_DIR.rglob("*.jpg"):
             x_max = max(x_coords)
             y_max = max(y_coords)
 
-            x1, y1, x2, y2 = adjust_bbox_width_only(x_min, y_min, x_max, y_max, width, height,
-                                                    padding_ratio=PADDING_RATIO, widen_ratio=WIDEN_RATIO)
+            # Default-Werte
+            padding_ratio = 0.5
+            widen_ratio = 0.5
+
+            # Anpassung je nach Klasse
+            if folder_name == "pinky" or folder_name == "index":
+                padding_ratio = 0.7
+                widen_ratio = 0.6
+            elif folder_name == "thumb":
+                padding_ratio = 0.5
+                widen_ratio = 0.6
+            elif folder_name == "index_pinky":
+                padding_ratio = 0.7
+                widen_ratio = 0.7
+
+            x1, y1, x2, y2 = adjust_bbox_width_only(
+                x_min, y_min, x_max, y_max, width, height,
+                padding_ratio=padding_ratio,
+                widen_ratio=widen_ratio
+            )
 
             xc = (x1 + x2) / 2 / width
             yc = (y1 + y2) / 2 / height

@@ -3,42 +3,56 @@ from pathlib import Path
 import shutil
 import time
 import subprocess
+import os
 
 def main():
-    # === Pfad zur YAML-Datei ===
+    # Pfad zur YAML-Datei
     yaml_path = Path(__file__).parent / "handzeichen.yaml"
+    if not yaml_path.exists():
+        print(f"YAML-Datei nicht gefunden: {yaml_path}")
+        return
 
-    # === Modell laden ===
-    model = YOLO("model_output/yolov8n.pt")
+    # Modell laden (lädt automatisch von Ultralytics, wenn lokal nicht vorhanden)
+    model = YOLO("yolov8n.pt")
 
-    # === Training starten ===
+    # Training starten und jede Epoche speichern
     model.train(
         data=str(yaml_path),
         epochs=50,
         imgsz=640,
         batch=16,
         name="handzeichen_train",
-        pretrained=True
+        pretrained=True,
+        save_period=1
     )
 
-    # === Nach dem Training: CSV kopieren ===
-    run_dir = Path("runs/detect/handzeichen_train")
+    # Letztes Run-Verzeichnis ermitteln
+    run_dirs = sorted(Path("runs/detect").glob("handzeichen_train*"), key=os.path.getmtime)
+    if not run_dirs:
+        print("Kein Run-Verzeichnis gefunden.")
+        return
+
+    run_dir = run_dirs[-1]
     results_csv = run_dir / "results.csv"
     ziel_csv = Path("model_output/trainings_log.csv")
 
-    time.sleep(1)  # kurze Pause, damit Datei sicher geschrieben wurde
+    time.sleep(1)
+
     if results_csv.exists():
         shutil.copy(results_csv, ziel_csv)
-        print(f" Trainings-CSV gespeichert unter: {ziel_csv.resolve()}")
+        print(f"Trainings-CSV gespeichert unter: {ziel_csv.resolve()}")
 
-        # === Externes Skript zur UUID-Ergänzung starten ===
-        try:
-            subprocess.run(["python", "runs/csv_uuid_ergenzung.py"], check=True)
-            print(" UUID-Ergänzungs-Skript wurde erfolgreich ausgeführt.")
-        except subprocess.CalledProcessError as e:
-            print(f" Fehler beim Ausführen des UUID-Skripts: {e}")
+        uuid_script = Path("runs/csv_uuid_ergenzung.py")
+        if uuid_script.exists():
+            try:
+                subprocess.run(["python", str(uuid_script)], check=True)
+                print("UUID-Ergänzungs-Skript erfolgreich ausgeführt.")
+            except subprocess.CalledProcessError as e:
+                print(f"Fehler beim Ausführen des UUID-Skripts: {e}")
+        else:
+            print("UUID-Ergänzungs-Skript nicht gefunden.")
     else:
-        print(" results.csv nicht gefunden – ist das Training fehlgeschlagen?")
+        print("results.csv nicht gefunden. Wurde das Training abgebrochen oder ist fehlgeschlagen?")
 
 if __name__ == "__main__":
     main()
