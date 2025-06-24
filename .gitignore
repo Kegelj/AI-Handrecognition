@@ -12,4 +12,13 @@ live_app/__pycache__
 cloud_data/airflow_data/
 cloud_data/responses.txt
 model_output/
-
+training/alternativ_daten/
+training/images/
+training/labels/
+cloud_data/airflow_data/
+runs/
+training/alternativ_daten/
+training/images/
+training/labels/
+cloud_data/airflow_data/
+runs/
