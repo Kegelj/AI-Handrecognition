@@ -10,7 +10,7 @@ cloud_data\connectors\__pycache__
 __init__.py
 live_app/__pycache__
 cloud_data/responses.txt
-model_output/
+
 training/alternativ_daten/
 training/images/
 training/labels/
