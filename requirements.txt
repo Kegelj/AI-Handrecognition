@@ -1,0 +1,12 @@
+
+mediapipe==0.10.9
+pynput
+pandas
+numpy
+matplotlib
+scikit-learn==1.4.2
+tensorflow==2.15.0
+albumentations
+opencv-python
+pygame
+
