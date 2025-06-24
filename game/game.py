@@ -405,6 +405,7 @@ class Game:
         self.screen.fill((20, 20, 20))
         title_font = pygame.font.SysFont("Comic Sans MS", 80)
         text_font = pygame.font.SysFont(None, 36)
+        credit_font = pygame.font.SysFont(None, 26)
         
         title = title_font.render("AI - MASTERS", True, (0, 255, 0))
         self.screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
@@ -430,6 +431,10 @@ class Game:
         btn_text = text_font.render("START", True, BLACK)
         self.screen.blit(btn_text, (button_rect.centerx - btn_text.get_width() // 2,
                                button_rect.centery - btn_text.get_height() // 2))
+        credit = credit_font.render("Originial Game by:", True, WHITE)
+        self.screen.blit(credit, (10, 10))
+        credit = credit_font.render("PrathyayPGM", True, GREEN)
+        self.screen.blit(credit, (10, 30))
         return button_rect
         
     def draw_gun(self):
