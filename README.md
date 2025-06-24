@@ -31,6 +31,18 @@ AI-Handrecognition/
 │   └── labels/  
 
 
+## Structure
+
+**You can use the links to jump to different sections, but we recommend reading everything to ensure proper usage**
+
+- [AI](#hand-gesture-recognition--training)
+
+- [Prerequisites](#prerequisites)
+
+- [Game](#game)
+
+- [Visualization](#visualization)
+
 ## Hand Gesture Recognition – Training 
 
 This section describes the steps to prepare data, train a YOLO model, and test its performance for hand gesture recognition. 
@@ -152,3 +164,88 @@ The following Varibales will be used and need to be set:<br>
 `AIRFLOW_USER`<br>
 `AIRFLOW_PASSWORD`<br>
 
+
+
+## Game
+
+The core game is a side-scrolling survival shooter where players control their character using hand gestures detected by the YOLO model.
+
+## How to run the Game
+
+### Direct game execution 
+```python
+python game/game.py
+```
+### Game execution with Data extracting Pipeline (recommended)
+```python
+python main.py
+```
+### Game Features
+
+**Gameplay Mechanics:**
+- **Movement Control:** Use hand gestures (pinky = left, thumb = right, index = jump)
+- **Auto-Shooting:** Automatic firing system, no manual shooting required
+- **Enemy Types:** Fight against goats and squirrels with different health and damage values
+- **Survival Focus:** Keep your health above 0 while eliminating as many enemies as possible
+
+**Technical Implementation:**
+- Built with pygame for smooth 60+ FPS gameplay
+- Real-time data logging of player actions, positions, health, and kill counts
+- Automatic CSV export after each game session for analysis
+- Galaxy-themed UI with neon green accents matching the AI theme
+
+**Game Controls:**
+```python
+# Gesture Controls (via YOLO detection)
+index_finger → Jump (↑)
+pinky_finger → Move Left (←) 
+thumb → Move Right (→)
+
+# Keyboard Controls (for testing/backup)
+A/← → Move Left
+D/→ → Move Right  
+W/↑ → Jump
+P → Pause
+F → Fullscreen
+```
+
+### Data Collection:
+Every player action gets logged with timestamps for later analysis:
+
+Player position (x, y coordinates)
+Health status at each action
+Kill counts (goats vs squirrels)
+Input gestures and timing
+Game duration and survival metrics
+
+The game automatically exports this data as CSV files which then get processed by the Airflow pipeline and visualized in the Power BI dashboard.
+
+
+## Visualization
+
+### PowerBI
+
+This project includes a Power BI dashboard for analyzing gaming performance and hand gesture recognition data. 
+
+### Dashboard Features
+
+The dashboard provides real-time analytics and insights into player performance:
+
+### **The Hall of Fame**
+
+- **Player Rankings:** Top performers ranked by total score
+- **Performance Metrics:** Highest scores, longest survival times, total games played
+- **Interactive Leaderboard:** Dynamic ranking system with medals for top 3 players
+
+#### **Best Rounds Analysis**
+- **Performance Quadrants:** Players can be categorized in 4 Zones based on Performance
+- **Scatter Plot Visualization:** Survival time vs. total kills correlation
+- **Game Quality Assessment:** Identifies peak performance sessions
+
+#### **Game Data Analysis**
+- **Movement Heatmaps:** Player position tracking and hotspot analysis
+- **Input Pattern Analysis:** Visualizes the inputs players took
+- **Kill Tracking** Individual Kill tracking Goats vs Squirrels
+
+- **Detailed Performance Breakdown:** Individual player statistics
+- **Game-specific Analysis:** Deep dive into selected games
