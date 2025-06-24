@@ -1,34 +1,34 @@
 # AI-Handrecognition
 
-AI-Handrecognition/ \n
-├── .gitignore  \n
-├── README.md  \n
-├── main.py \n
-├── requirements.txt \n
-├── cloud_data/ \n
-│   ├── airflow_data/ \n
-│   │   ├── data_bbox/ \n
-│   │   │   └── processed/ \n
-│   │   ├── data_game/ \n
-│   │   │   └── processed/ \n
-│   │   └── data_yolo/ \n
-│   │       └── processed/ \n
-│   ├── connectors/ \n
-│   ├── dags/ \n
-│   ├── logs/ \n
-│   ├── plugins/ \n
-│   ├── SQLStatements/ \n
-├── game/ \n
-│   ├── assets/ \n
-│   └── logs/ \n
-├── live_app/ \n
-├── model_output/ \n
-├── powerbi/ \n
-├── runs/ \n
-├── training/ \n
-│   ├── alternativ_daten/ \n
-│   ├── images/ \n
-│   └── labels/ 
+AI-Handrecognition/  
+├── .gitignore  
+├── README.md  
+├── main.py  
+├── requirements.txt  
+├── cloud_data/  
+│   ├── airflow_data/  
+│   │   ├── data_bbox/  
+│   │   │   └── processed/  
+│   │   ├── data_game/  
+│   │   │   └── processed/  
+│   │   └── data_yolo/  
+│   │       └── processed/  
+│   ├── connectors/  
+│   ├── dags/  
+│   ├── logs/  
+│   ├── plugins/  
+│   ├── SQLStatements/  
+├── game/  
+│   ├── assets/  
+│   └── logs/  
+├── live_app/  
+├── model_output/  
+├── powerbi/  
+├── runs/  
+├── training/  
+│   ├── alternativ_daten/  
+│   ├── images/  
+│   └── labels/  
 
 
 ## Hand Gesture Recognition – Training 
@@ -52,13 +52,13 @@ This section describes the steps to prepare data, train a YOLO model, and test i
 - Splits the labeled images and annotations into training (80%) and validation (20%) sets. 
 - Files are moved into the following directory structure: 
 
-training/ \n
-├── images/ \n
-│ ├── train/ \n
-│ └── val/ \n
-├── labels/ \n
-│ ├── train/ \n
-│ └── val/ 
+training/  
+├── images/  
+│ ├── train/  
+│ └── val/  
+├── labels/  
+│ ├── train/  
+│ └── val/  
 
 
 ### 3. Training the Model 
