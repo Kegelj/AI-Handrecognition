@@ -431,7 +431,7 @@ class Game:
         btn_text = text_font.render("START", True, BLACK)
         self.screen.blit(btn_text, (button_rect.centerx - btn_text.get_width() // 2,
                                button_rect.centery - btn_text.get_height() // 2))
-        credit = credit_font.render("Originial Game by:", True, WHITE)
+        credit = credit_font.render("Original Game by:", True, WHITE)
         self.screen.blit(credit, (10, 10))
         credit = credit_font.render("PrathyayPGM", True, GREEN)
         self.screen.blit(credit, (10, 30))
