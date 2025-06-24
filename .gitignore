@@ -14,5 +14,5 @@ model_output/
 training/alternativ_daten/
 training/images/
 training/labels/
-
+cloud_data/airflow_data/
 runs/
