@@ -77,7 +77,46 @@ training/
 - Evaluates its performance on test images. 
 - Verifies if the correct hand gestures are detected as expected. 
 
+## Real-Time Hand Gesture Control
 
+**Script:** `game_control.py`
+
+This script enables real-time control of a game using hand gestures detected via a YOLO model.
+
+### Features
+
+- Uses a webcam feed and a trained YOLO model (`model_output/epoch41.pt`) to detect hand gestures.
+- Maps detected gestures to keyboard inputs using `pynput`.
+- Supports multiple gestures and combined actions:
+  - `index` → ↑ (move up)
+  - `pinky` → ← (move left)
+  - `thumb` → → (move right)
+  - `index_pinky` → ↑ + ←
+  - `thumb_index` → ↑ + →
+
+### Functions
+
+- `live_tracking_yolo()`:  
+  Starts the webcam and runs the YOLO model in a live loop at ~15 FPS. Recognized gestures are converted into key presses. Bounding boxes and labels are displayed in an OpenCV window. The loop stops on keypress `'q'`.
+
+- `extracting_frames(video_name, save_path, skip_frames=5)`:  
+  Loads a video and saves frames every N frames as `.jpg` files for dataset creation or debugging.
+
+- `length_of_video(video_name)`:  
+  Returns the total number of frames in the given video.
+
+### Dependencies
+
+- OpenCV (`cv2`)
+- Pynput (`pynput.keyboard`)
+- Ultralytics YOLOv8
+- A trained model saved under `model_output/` (e.g. `epoch41.pt`)
+
+### Usage
+
+```bash
+python game_control.py
+```
 
 
 ## Prerequisites 
